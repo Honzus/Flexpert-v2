@@ -1,5 +1,7 @@
 HF_cache/
 
+lumi-pyg-lightning-tk_latest.sif
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
