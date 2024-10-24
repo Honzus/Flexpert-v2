@@ -1,6 +1,7 @@
 HF_cache/
 wandb/
 results/
+results_debug/
 
 lumi-pyg-lightning-tk_latest.sif
 
