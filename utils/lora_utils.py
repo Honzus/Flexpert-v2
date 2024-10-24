@@ -1,15 +1,14 @@
-
 class LoRAConfig:
-    def __init__(self):
-        self.lora_rank = 4
-        self.lora_init_scale = 0.01
-        self.lora_modules = ".*SelfAttention|.*EncDecAttention"
-        self.lora_layers = "q|k|v|o"
-        self.trainable_param_names = ".*layer_norm.*|.*lora_[ab].*"
-        self.lora_scaling_rank = 1
-        # lora_modules and lora_layers are speicified with regular expressions
-        # see https://www.w3schools.com/python/python_regex.asp for reference
-        
+    def __init__(self, config_file):
+        # Load the YAML configuration file
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+
+        # Set class attributes based on the loaded YAML config
+        for section, settings in config.items():
+            for key, value in settings.items():
+                setattr(self, key, value)
+
 class LoRALinear(nn.Module):
     def __init__(self, linear_layer, rank, scaling_rank, init_scale):
         super().__init__()
