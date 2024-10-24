@@ -42,8 +42,7 @@ import wandb
 
 from utils.lora_utils import LoRAConfig, modify_with_lora
 from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
-
-os.environ['HF_HOME'] = yaml.load(open('configs/env_config.yaml'))['huggingface']['HF_HOME']
+os.environ['HF_HOME'] = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)['huggingface']['HF_HOME']
 
 # Main training fuction
 def train_per_residue(
