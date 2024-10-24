@@ -2,7 +2,7 @@
 import os.path
 import os
 import yaml
-os.environ['HF_HOME'] = yaml.load(open('configs/config.yaml'))['huggingface']['HF_HOME']
+os.environ['HF_HOME'] = yaml.load(open('configs/env_config.yaml'))['huggingface']['HF_HOME']
 
 import torch
 import torch.nn as nn
@@ -58,6 +58,7 @@ import warnings
 
 import wandb
 from utils.lora_utils import LoRAConfig, modify_with_lora
+from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 
 class ClassConfig:
     def __init__(self, dropout=0.2, num_labels=1, add_pearson_loss=False, add_sse_loss=False, adaptor_architecture = None , enm_embed_dim = 512, enm_att_heads = 8, kernel_size = 3, num_layers = 2):
@@ -70,197 +71,6 @@ class ClassConfig:
         self.enm_att_heads = enm_att_heads
         self.kernel_size = kernel_size
         self.num_layers = num_layers
-
-class ENMAdaptedAttentionClassifier(nn.Module):
-    def __init__(self, seq_embedding_dim, out_dim, enm_embed_dim, num_att_heads):
-        super(ENMAdaptedAttentionClassifier, self).__init__()
-        self.embedding = nn.Linear(1, enm_embed_dim)
-        self.enm_attention = nn.MultiheadAttention(enm_embed_dim, num_att_heads)
-        self.layer_norm = nn.LayerNorm(enm_embed_dim)
-        self.enm_adaptor = nn.Linear(enm_embed_dim, seq_embedding_dim)
-        self.adapted_classifier = nn.Linear(2*seq_embedding_dim, out_dim)
-    
-    def forward(self, seq_embedding, enm_input):
-        enm_input = enm_input.transpose(0, 1)  # Transpose to shape (N, B, E) for MultiheadAttention
-        enm_input = enm_input.unsqueeze(-1)  # Add a dimension for the embedding
-        enm_input_embedded = self.embedding(enm_input)
-        enm_att, _ = self.enm_attention(enm_input_embedded, enm_input_embedded, enm_input_embedded)
-        enm_att = enm_att.transpose(0, 1)  # Transpose back to shape (B, N, E)
-        enm_att = self.layer_norm(enm_att + enm_input.transpose(0, 1))
-        enm_embedding = self.enm_adaptor(enm_att)
-        # import pdb; pdb.set_trace()
-        combined_embedding = torch.cat((seq_embedding, enm_embedding), dim=-1)
-        logits = self.adapted_classifier(combined_embedding)
-        return logits
-    
-class ENMAdaptedConvClassifier(nn.Module):
-    def __init__(self, seq_embedding_dim, out_dim, kernel_size, enm_embedding_dim, num_layers):
-        super(ENMAdaptedConvClassifier, self).__init__()
-        layers = []
-        self.conv1 = nn.Conv1d(1, enm_embedding_dim, kernel_size=kernel_size, padding=(kernel_size-1)//2)
-        layers.append(self.conv1)
-        layers.append(nn.ReLU())
-        for i in range(num_layers-1):
-            layers.append(nn.Conv1d(enm_embedding_dim, enm_embedding_dim, kernel_size=kernel_size, padding=(kernel_size-1)//2))
-            layers.append(nn.ReLU())
-        self.conv_net = nn.Sequential(*layers)
-        self.adapted_classifier = nn.Linear(seq_embedding_dim+1, out_dim)
-
-    def forward(self, seq_embedding, enm_input, attention_mask=None):
-        enm_input = torch.nan_to_num(enm_input, nan=0.0)
-        enm_input = enm_input.unsqueeze(1)
-        conv_out = self.conv_net(enm_input)
-        enm_embedding = conv_out.transpose(1,2)
-        
-        if attention_mask is not None:
-            # Use attention_mask to ignore padded elements
-            mask = attention_mask.unsqueeze(-1).float()
-            enm_embedding = enm_embedding * mask
-            # Compute mean over non-padded elements
-            
-            enm_embedding = enm_embedding.mean(dim=-1).unsqueeze(-1)
-            # enm_embedding = enm_embedding.sum(dim=2)/ mask.sum(dim=2).clamp(min=1e-9)
-        else:
-            raise ValueError('We actually want to provide the mask.')
-            enm_embedding = torch.mean(enm_embedding, dim=1)
-            
-        # enm_embedding = enm_embedding.unsqueeze(1).expand(-1, seq_embedding.size(1), -1)
-        combined_embedding = torch.cat((seq_embedding, enm_embedding), dim=-1)
-        logits = self.adapted_classifier(combined_embedding)
-        return logits
-    
-
-        
-class ENMAdaptedDirectClassifier(nn.Module):
-    def __init__(self, seq_embedding_dim, out_dim):
-        super(ENMAdaptedDirectClassifier, self).__init__()
-        self.adapted_classifier = nn.Linear(seq_embedding_dim+1, out_dim)
-
-    def forward(self, seq_embedding, enm_input):
-            enm_input = enm_input.unsqueeze(-1)
-            combined_embedding = torch.cat((seq_embedding, enm_input), dim=-1)
-            logits = self.adapted_classifier(combined_embedding)
-            return logits
-
-class ENMNoAdaptorClassifier(nn.Module):
-    def __init__(self, seq_embedding_dim, out_dim):
-        super(ENMNoAdaptorClassifier, self).__init__()
-        self.adapted_classifier = nn.Linear(seq_embedding_dim, out_dim)
-
-    def forward(self, seq_embedding, enm_input):
-            _ = enm_input #ignoring enm_input
-            logits = self.adapted_classifier(seq_embedding)
-            return logits
-
-class T5EncoderForTokenClassification(T5PreTrainedModel):
-
-    def __init__(self, config: T5Config, class_config):
-        super().__init__(config)
-        self.num_labels = class_config.num_labels
-        self.config = config
-        self.add_pearson_loss = class_config.add_pearson_loss
-        self.add_sse_loss = class_config.add_sse_loss
-        self.shared = nn.Embedding(config.vocab_size, config.d_model)
-
-        encoder_config = copy.deepcopy(config)
-        encoder_config.use_cache = False
-        encoder_config.is_encoder_decoder = False
-        self.encoder = T5Stack(encoder_config, self.shared)
-
-        self.dropout = nn.Dropout(class_config.dropout_rate)
-        if class_config.adaptor_architecture == 'attention':
-            self.classifier = ENMAdaptedAttentionClassifier(config.hidden_size, class_config.num_labels, class_config.enm_embed_dim, class_config.enm_att_heads) #nn.Linear(config.hidden_size, class_config.num_labels)
-        elif class_config.adaptor_architecture == 'direct':
-            self.classifier = ENMAdaptedDirectClassifier(config.hidden_size, class_config.num_labels)
-        elif class_config.adaptor_architecture == 'conv':
-            self.classifier = ENMAdaptedConvClassifier(config.hidden_size, class_config.num_labels, class_config.kernel_size, class_config.enm_embed_dim, class_config.num_layers)
-        elif class_config.adaptor_architecture == 'no-adaptor':
-            self.classifier = ENMNoAdaptorClassifier(config.hidden_size, class_config.num_labels)
-        else:
-            raise ValueError('Only attention, direct, conv and no-adaptor architectures are supported for the adaptor.')
-
-
-        # Initialize weights and apply final processing
-        self.post_init()
-
-        # Model parallel
-        self.model_parallel = False
-        self.device_map = None
-
-    def parallelize(self, device_map=None):
-        self.device_map = (
-            get_device_map(len(self.encoder.block), range(torch.cuda.device_count()))
-            if device_map is None
-            else device_map
-        )
-        assert_device_map(self.device_map, len(self.encoder.block))
-        self.encoder.parallelize(self.device_map)
-        self.classifier = self.classifier.to(self.encoder.first_device)
-        self.model_parallel = True
-
-    def deparallelize(self):
-        self.encoder.deparallelize()
-        self.encoder = self.encoder.to("cpu")
-        self.model_parallel = False
-        self.device_map = None
-        torch.cuda.empty_cache()
-
-    def get_input_embeddings(self):
-        return self.shared
-
-    def set_input_embeddings(self, new_embeddings):
-        self.shared = new_embeddings
-        self.encoder.set_input_embeddings(new_embeddings)
-
-    def get_encoder(self):
-        return self.encoder
-
-    def _prune_heads(self, heads_to_prune):
-        """
-        Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
-        class PreTrainedModel
-        """
-        for layer, heads in heads_to_prune.items():
-            self.encoder.layer[layer].attention.prune_heads(heads)
-
-    def forward(
-        self,
-        enm_vals = None,
-        input_ids=None,
-        attention_mask=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        # import pdb; pdb.set_trace()
-        outputs = self.encoder(input_ids=input_ids,
-            attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
-            head_mask=head_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-
-        sequence_output = outputs[0]
-        sequence_output = self.dropout(sequence_output)
-        #TODO: check the enm_vals are padded properly and check that the sequence limit (in the transformer) is indeed 512
-        logits = self.classifier(sequence_output, enm_vals, attention_mask)
-        
-        if not return_dict:
-            output = (logits,) + outputs[2:]
-            return ((loss,) + output) if loss is not None else output
-
-        return TokenClassifierOutput(
-            #loss=loss,
-            logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
 
 class ENMAdaptedTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False):
@@ -325,9 +135,6 @@ def PT5_classification_model(half_precision, class_config):
             if re.fullmatch(config.trainable_param_names, param_name):
                 param.requires_grad = True
 
-    #TODO: make the ENMAdaptedClassifier trainable and check whether LoRA is applied to those layers (we dont want it probably to be applied there)
-
-
     # Print trainable Parameter          
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
@@ -385,7 +192,7 @@ class DataCollatorForTokenRegression(DataCollatorMixin):
         )
 
         batch['enm_vals'] = torch.nn.utils.rnn.pad_sequence([torch.tensor(feature['enm_vals'], dtype=torch.float) for feature in features], batch_first=True, padding_value=0.0)
-#batch = self.tokenizer.pad(no_labels_features,padding=self.padding,max_length=self.max_length,pad_to_multiple_of=self.pad_to_multiple_of,return_tensors="pt")
+        #batch = self.tokenizer.pad(no_labels_features,padding=self.padding,max_length=self.max_length,pad_to_multiple_of=self.pad_to_multiple_of,return_tensors="pt")
         if labels is None:
             return batch
 
