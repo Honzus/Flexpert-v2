@@ -78,7 +78,7 @@ class ENMNoAdaptorClassifier(nn.Module):
         super(ENMNoAdaptorClassifier, self).__init__()
         self.adapted_classifier = nn.Linear(seq_embedding_dim, out_dim)
 
-    def forward(self, seq_embedding, enm_input):
+    def forward(self, seq_embedding, enm_input, attention_mask=None):
             _ = enm_input #ignoring enm_input
             logits = self.adapted_classifier(seq_embedding)
             return logits

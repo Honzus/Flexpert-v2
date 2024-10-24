@@ -11,9 +11,8 @@ class LoRAConfig:
             config = yaml.safe_load(file)
 
         # Set class attributes based on the loaded YAML config
-        for section, settings in config.items():
-            for key, value in settings.items():
-                setattr(self, key, value)
+        for key, value in config.items():
+            setattr(self, key, value)
 
 class LoRALinear(nn.Module):
     def __init__(self, linear_layer, rank, scaling_rank, init_scale):

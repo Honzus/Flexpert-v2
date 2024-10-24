@@ -1,8 +1,10 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import copy
 import re
-from transformers import T5Config, T5PreTrainedModel, T5Stack, T5EncoderModel, T5Tokenizer
+from transformers import T5Config, T5PreTrainedModel, T5EncoderModel, T5Tokenizer
+from transformers.models.t5.modeling_t5 import T5Stack
 from transformers.modeling_outputs import TokenClassifierOutput
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
@@ -147,7 +149,7 @@ def PT5_classification_model(half_precision, class_config):
     print("ProtT5_Classfier\nTrainable Parameter: "+ str(params))    
  
     # Add model modification lora
-    config = LoRAConfig()
+    config = LoRAConfig('configs/lora_config.yaml')
     
     # Add LoRA layers
     model = modify_with_lora(model, config)

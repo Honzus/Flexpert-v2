@@ -1,6 +1,7 @@
 #import dependencies
 import os
 import yaml
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -29,7 +30,8 @@ from torch.utils.data import DataLoader
 import transformers
 from transformers import T5EncoderModel, T5Tokenizer, TrainingArguments, Trainer, set_seed
 from transformers.modeling_outputs import TokenClassifierOutput
-from transformers.models.t5.modeling_t5 import T5Config, T5PreTrainedModel, T5Stack
+from transformers import T5Config, T5PreTrainedModel
+from transformers.models.t5.modeling_t5 import T5Stack
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from transformers.data.data_collator import DataCollatorMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
@@ -41,10 +43,13 @@ from datasets import Dataset
 import wandb
 
 from utils.lora_utils import LoRAConfig, modify_with_lora
+from utils.utils import ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, DataCollatorForTokenRegression
+from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
 from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
+
 os.environ['HF_HOME'] = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)['huggingface']['HF_HOME']
 
-# Main training fuction
+# Main training function
 def train_per_residue(
         run_name,         #name of the run
         train_df,         #training data
@@ -132,7 +137,6 @@ def train_per_residue(
         valid_labels=labels[np.where((labels != -100 ) & (labels < 900 ))]
         valid_predictions=predictions[np.where((labels != -100 ) & (labels < 900 ))]
         #assuming the ENM vals are subtracted from the labels for correct evaluation
-        # pdb.set_trace()
         spearman = load("spearmanr")
         pearson = load("pearsonr")
         mse = load("mse")
@@ -155,8 +159,7 @@ def train_per_residue(
         data_collator=data_collator,
         compute_metrics=compute_metrics
     )
-    # wandb.watch(model, log='all')    
-    #pdb.set_trace()
+    # wandb.watch(model, log='all')  
     # Train model
     trainer.train()
     #trainer.save_model(run_name)
@@ -169,7 +172,6 @@ def do_topology_split(df, split_path):
     
     with open(split_path, 'r') as f:
         splits = json.load(f)
-    import pdb; pdb.set_trace()
     #split the dataframe according to the splits
     train_df = df[df['name'].isin(splits['train'])]
     valid_df = df[df['name'].isin(splits['validation'])]
@@ -265,7 +267,7 @@ if __name__=='__main__':
 
     # Add label column
     df["label"] = labels
-    warnings.warn("The labels are now the RMSF values directly!")
+    # warnings.warn("The labels are now the RMSF values directly!")
     df["enm_vals"] = enm_vals
 
     train,valid,test = do_topology_split(df, args.splits_path)
@@ -339,3 +341,5 @@ if __name__=='__main__':
                                                   add_pearson_loss=args.add_pearson_loss, add_sse_loss=args.add_sse_loss,
                                                   adaptor_architecture = args.adaptor_architecture, enm_embed_dim = args.enm_embed_dim,
                                                   enm_att_heads = args.enm_att_heads, num_layers = args.num_layers, kernel_size = args.kernel_size)
+
+
