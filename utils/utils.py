@@ -199,3 +199,11 @@ def save_finetuned_model(model, target_folder):
     filepath = os.path.join(target_folder, "final_model")
     model.save_pretrained(filepath, safe_serialization=False)
     print(f"Final model saved to {filepath}")
+
+
+def update_config(config, args):
+    # Update config with any non-None command-line arguments
+    for arg in vars(args):
+        if getattr(args, arg) is not None:
+            config[arg] = getattr(args, arg)
+    return config
