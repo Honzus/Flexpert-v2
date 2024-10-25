@@ -206,12 +206,3 @@ if __name__=='__main__':
     ### Train model and save
     trainer.train()
     save_finetuned_model(trainer.model,config['training_args']['output_dir'])
-        
-    # #TODO review below
-    # tokenizer, model, history = train_per_residue(args.run_name, train, valid, num_labels=1, batch=args.batch_size, accum=args.gradient_accumulation_steps, 
-    #                                               epochs=args.epochs, seed=42, gpu=1, mixed = args.mixed_precision, save_steps=args.save_steps, 
-    #                                               add_pearson_loss=args.add_pearson_loss, add_sse_loss=args.add_sse_loss,
-    #                                               adaptor_architecture = args.adaptor_architecture, enm_embed_dim = args.enm_embed_dim,
-    #                                               enm_att_heads = args.enm_att_heads, num_layers = args.num_layers, kernel_size = args.kernel_size)
-
-
