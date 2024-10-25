@@ -15,6 +15,8 @@ gradient_accumulation_steps: 1
 seed: 42
 adaptor_architecture: null
 run_name: null
+num_labels: 1 # for regression
+dropout_rate: 0.2
 
 #huggingface trainer arguments
 training_args:
@@ -25,7 +27,7 @@ training_args:
   load_best_model_at_end: True         # Load the best model (based on metric) at the end of training
   metric_for_best_model: 'spearmanr'    # The metric to use to compare models
   greater_is_better: True               # Defines whether higher values of the above metric are better
-  learning_rate: 3e-4
+  learning_rate: 0.0003
   save_safetensors: False
   save_steps: 528
   save_total_limit: 3

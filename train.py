@@ -94,16 +94,16 @@ def preprocess_data(tokenizer, train, valid, test):
 
     # Preprocess inputs for the model
     # Replace uncommon AAs with "X"
-    train_df["sequence"]=train_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
-    valid_df["sequence"]=valid_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
+    train["sequence"]=train["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
+    valid["sequence"]=valid["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
     # Add spaces between each amino acid for PT5 to correctly use them
-    train_df['sequence']=train_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
-    valid_df['sequence']=valid_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
+    train['sequence']=train.apply(lambda row : " ".join(row["sequence"]), axis = 1)
+    valid['sequence']=valid.apply(lambda row : " ".join(row["sequence"]), axis = 1)
 
 
     # Create Datasets
-    train_set=create_dataset(tokenizer,list(train_df['sequence']),list(train_df['label']),list(train_df['enm_vals']))
-    valid_set=create_dataset(tokenizer,list(valid_df['sequence']),list(valid_df['label']),list(valid_df['enm_vals']))
+    train_set=create_dataset(tokenizer,list(train['sequence']),list(train['label']),list(train['enm_vals']))
+    valid_set=create_dataset(tokenizer,list(valid['sequence']),list(valid['label']),list(valid['enm_vals']))
 
     return train_set, valid_set, test
 
@@ -123,7 +123,7 @@ if __name__=='__main__':
     config['training_args']['num_train_epochs'] = config['epochs']
     config['training_args']['per_device_train_batch_size'] = config['batch_size']
     config['training_args']['per_device_eval_batch_size'] = config['batch_size']
-    config['training_args']['eval_steps'] = config['save_steps']
+    config['training_args']['eval_steps'] = config['training_args']['save_steps']
 
     print("Training with the following config: \n", config)
 
