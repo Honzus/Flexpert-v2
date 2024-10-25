@@ -123,7 +123,7 @@ def train_per_residue(
     
     # Huggingface Trainer arguments
     args = TrainingArguments(
-        output_dir = f"./results/nodiff_results_{run_name}",
+        output_dir = f"./results/results_{run_name}",
         run_name = run_name,
         evaluation_strategy = "steps",
         eval_steps = save_steps,
@@ -179,10 +179,9 @@ def train_per_residue(
         data_collator=data_collator,
         compute_metrics=compute_metrics
     )
-    # wandb.watch(model, log='all')  
+
     # Train model
     trainer.train()
-    #trainer.save_model(run_name)
 
     save_finetuned_model(trainer.model,"./results_"+run_name)
     
@@ -194,13 +193,12 @@ if __name__=='__main__':
     config = update_config(config, args)
     print("Training with the following config: \n", config)
 
-    #TODO: save the updated config to the results folder
-    #TODO: use the variables from the config 
-    
+    env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
+
     # Set HF_HOME
-    os.environ['HF_HOME'] = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)['huggingface']['HF_HOME']
+    os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
     # Initialize wandb
-    wandb.init(project="nodiff_ANM_corrector_to_RMSF", name=args.run_name, config = vars(args))
+    wandb.init(project=env_config['wandb']['project'], name=config['run_name'], config = config)
 
     # Load data
     DATA_PATH = config['data_path']
@@ -232,23 +230,8 @@ if __name__=='__main__':
         for l in lines:
             _split_line = l.split(":\t")
             names.append(_split_line[0])
-            labels.append(_split_line[1].split(", "))
+            labels.append([float(label) for label in _split_line[1].split(", ")])
             enm_vals.append(enm_vals_dict[_split_line[0]])
-    
-
-    # Covert labels to float values
-    for l in range(0,len(labels)):
-        labels[l]=[float(label) for label in labels[l]]
-
-    diff_labels = []
-    for ls, enms in zip(labels, enm_vals):
-        _diff = []
-        for l,enm in zip(ls, enms):
-            if l > 900 or l == -100:
-                _diff.append(l)
-            else:
-                _diff.append(l-enm)
-        diff_labels.append(_diff)
 
     # Add label column
     df["label"] = labels
