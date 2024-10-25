@@ -130,7 +130,7 @@ if __name__=='__main__':
     env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
 
     ### Set environment variables
-    # Set HF_HOME
+    # Set folder for huggingface cache
     os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
     # Set gpu device
     os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
