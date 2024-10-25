@@ -33,9 +33,9 @@ from transformers.modeling_outputs import TokenClassifierOutput
 from transformers import T5Config, T5PreTrainedModel
 from transformers.models.t5.modeling_t5 import T5Stack
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
-from transformers.data.data_collator import DataCollatorMixin
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.utils import PaddingStrategy
+# from transformers.data.data_collator import DataCollatorMixin
+# from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+# from transformers.utils import PaddingStrategy
 
 from evaluate import load
 from datasets import Dataset
@@ -43,7 +43,7 @@ from datasets import Dataset
 import wandb
 
 from utils.lora_utils import LoRAConfig, modify_with_lora
-from utils.utils import ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, DataCollatorForTokenRegression
+from utils.utils import ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, DataCollatorForTokenRegression, do_topology_split
 from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
 from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 
@@ -167,17 +167,6 @@ def train_per_residue(
     save_finetuned_model(trainer.model,"./results_"+run_name)
     
     return tokenizer, model, trainer.state.log_history
-
-def do_topology_split(df, split_path):
-    
-    with open(split_path, 'r') as f:
-        splits = json.load(f)
-    #split the dataframe according to the splits
-    train_df = df[df['name'].isin(splits['train'])]
-    valid_df = df[df['name'].isin(splits['validation'])]
-    test_df = df[df['name'].isin(splits['test'])]
-    return train_df, valid_df, test_df
-
 
 if __name__=='__main__':
     import argparse

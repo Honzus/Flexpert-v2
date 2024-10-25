@@ -1,5 +1,6 @@
 import torch
 import os
+import json
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.utils import PaddingStrategy
 from transformers.data.data_collator import DataCollatorMixin
@@ -181,6 +182,17 @@ def create_dataset(tokenizer,seqs,labels, enm_vals, names=None):
     if names:
         dataset = dataset.add_column("name", names)
     return dataset
+
+
+def do_topology_split(df, split_path):
+    
+    with open(split_path, 'r') as f:
+        splits = json.load(f)
+    #split the dataframe according to the splits
+    train_df = df[df['name'].isin(splits['train'])]
+    valid_df = df[df['name'].isin(splits['validation'])]
+    test_df = df[df['name'].isin(splits['test'])]
+    return train_df, valid_df, test_df
 
 def save_finetuned_model(model, target_folder):
     # Saves all parameters that were changed during finetuning
