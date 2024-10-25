@@ -4,7 +4,6 @@ enm_path: 'data/atlas_minimized_fluctuations_ANM.jsonl'
 splits_path: 'data/atlas_splits.json'
 batch_size: 4
 epochs: 100
-save_steps: 528
 add_pearson_loss: False
 add_sse_loss: False
 enm_embed_dim: 512
@@ -13,7 +12,21 @@ num_layers: 2
 kernel_size: 3
 mixed_precision: False
 gradient_accumulation_steps: 1
-
-#TODO: keep as args
-run_name: None
+seed: 42
 adaptor_architecture: null
+run_name: null
+
+#huggingface trainer arguments
+training_args:
+  output_dir: './results/results_{run_name}_{timestamp}'
+  run_name: null  # This will be set programmatically
+  evaluation_strategy: 'steps'            
+  save_strategy: 'steps'
+  load_best_model_at_end: True         # Load the best model (based on metric) at the end of training
+  metric_for_best_model: 'spearmanr'    # The metric to use to compare models
+  greater_is_better: True               # Defines whether higher values of the above metric are better
+  learning_rate: 3e-4
+  save_safetensors: False
+  save_steps: 528
+  save_total_limit: 3
+  logging_strategy: 'epoch'

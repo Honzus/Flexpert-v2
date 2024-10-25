@@ -207,3 +207,9 @@ def update_config(config, args):
         if getattr(args, arg) is not None:
             config[arg] = getattr(args, arg)
     return config
+
+class ClassConfig:
+    def __init__(self, config):
+        # Set class attributes based on the loaded YAML config
+        for key, value in config.items():
+            setattr(self, key, value)
