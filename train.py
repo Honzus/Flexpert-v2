@@ -65,7 +65,6 @@ def train_per_residue(
         epochs= 10,       #training epochs
         lr= 3e-4,         #recommended learning rate
         seed= 42,         #random seed
-        deepspeed= True,  #if gpu is large enough disable deepspeed for training speedup
         mixed= False,     #enable mixed precision training  
         gpu= 1,
         save_steps=528,
@@ -122,7 +121,6 @@ def train_per_residue(
         gradient_accumulation_steps=accum,
         num_train_epochs=epochs,
         seed = seed,
-        deepspeed= ds_config if deepspeed else None,
         fp16 = mixed,
         save_safetensors = False
     ) 
@@ -273,60 +271,9 @@ if __name__=='__main__':
     train['label'] = train.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
     valid['label'] = valid.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
     test['label'] = test.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-
-    ds_config = {
-        "fp16": {
-            "enabled": "auto",
-            "loss_scale": 0,
-            "loss_scale_window": 1000,
-            "initial_scale_power": 16,
-            "hysteresis": 2,
-            "min_loss_scale": 1
-        },
-
-        "optimizer": {
-            "type": "AdamW",
-            "params": {
-                "lr": "auto",
-                "betas": "auto",
-                "eps": "auto",
-                "weight_decay": "auto"
-            }
-        },
-
-        "scheduler": {
-            "type": "WarmupLR",
-            "params": {
-                "warmup_min_lr": "auto",
-                "warmup_max_lr": "auto",
-                "warmup_num_steps": "auto"
-            }
-        },
-
-        "zero_optimization": {
-            "stage": 2,
-            "offload_optimizer": {
-                "device": "cpu",
-                "pin_memory": True
-            },
-            "allgather_partitions": True,
-            "allgather_bucket_size": 2e8,
-            "overlap_comm": True,
-            "reduce_scatter": True,
-            "reduce_bucket_size": 2e8,
-            "contiguous_gradients": True
-        },
-
-        "gradient_accumulation_steps": "auto",
-        "gradient_clipping": "auto",
-        "steps_per_print": 2000,
-        "train_batch_size": "auto",
-        "train_micro_batch_size_per_gpu": "auto",
-        "wall_clock_breakdown": False
-    }
     
     tokenizer, model, history = train_per_residue(args.run_name, train, valid, num_labels=1, batch=args.batch_size, accum=args.gradient_accumulation_steps, 
-                                                  epochs=args.epochs, seed=42, gpu=1, mixed = args.mixed_precision, deepspeed=False, save_steps=args.save_steps, 
+                                                  epochs=args.epochs, seed=42, gpu=1, mixed = args.mixed_precision, save_steps=args.save_steps, 
                                                   add_pearson_loss=args.add_pearson_loss, add_sse_loss=args.add_sse_loss,
                                                   adaptor_architecture = args.adaptor_architecture, enm_embed_dim = args.enm_embed_dim,
                                                   enm_att_heads = args.enm_att_heads, num_layers = args.num_layers, kernel_size = args.kernel_size)
