@@ -34,7 +34,6 @@ from transformers import T5Config, T5PreTrainedModel
 from transformers.models.t5.modeling_t5 import T5Stack
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
-from evaluate import load
 from datasets import Dataset
 
 import wandb
@@ -42,9 +41,15 @@ import argparse
 from datetime import datetime
 
 # from utils.lora_utils import LoRAConfig, modify_with_lora
-from utils.utils import ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, DataCollatorForTokenRegression, do_topology_split, update_config
+from utils.utils import (
+    ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, 
+    DataCollatorForTokenRegression, do_topology_split, update_config, compute_metrics
+)
 from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
-from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
+from models.enm_adaptor_heads import (
+    ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
+    ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
+)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model on the CATH dataset')
@@ -72,7 +77,38 @@ def parse_args():
     parser.add_argument('--gradient_accumulation_steps', type=int, help='Number of steps to accumulate gradients before performing a backward/update pass.')
     return parser.parse_args()
 
+def preprocess_data(tokenizer, train, valid, test):
+
+    train = train[["sequence", "label", "enm_vals"]]
+    valid = valid[["sequence", "label", "enm_vals"]]
+    test = test[["sequence", "label", "enm_vals"]]
+    
+    train.reset_index(drop=True,inplace=True)
+    valid.reset_index(drop=True,inplace=True)
+    test.reset_index(drop=True,inplace=True)
+
+    # Replace invalid labels (>900) with -100 (will be ignored by pytorch loss)
+    train['label'] = train.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
+    valid['label'] = valid.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
+    test['label'] = test.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
+
+    # Preprocess inputs for the model
+    # Replace uncommon AAs with "X"
+    train_df["sequence"]=train_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
+    valid_df["sequence"]=valid_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
+    # Add spaces between each amino acid for PT5 to correctly use them
+    train_df['sequence']=train_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
+    valid_df['sequence']=valid_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
+
+
+    # Create Datasets
+    train_set=create_dataset(tokenizer,list(train_df['sequence']),list(train_df['label']),list(train_df['enm_vals']))
+    valid_set=create_dataset(tokenizer,list(valid_df['sequence']),list(valid_df['label']),list(valid_df['enm_vals']))
+
+    return train_set, valid_set, test
+
 if __name__=='__main__':
+    ### Read and update config
     args = parse_args()
     config = yaml.load(open('configs/train_config.yaml', 'r'), Loader=yaml.FullLoader)
     config = update_config(config, args)
@@ -93,14 +129,16 @@ if __name__=='__main__':
 
     env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
 
+    ### Set environment variables
     # Set HF_HOME
     os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
     # Set gpu device
     os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
-    # Initialize wandb
+    
+    ### Initialize wandb
     wandb.init(project=env_config['wandb']['project'], name=config['run_name'], config = config)
 
-    # Load data
+    ### Load data - into dataframe
     DATA_PATH = config['data_path']
     FASTA_PATH = config['fasta_path']
     ENM_PATH = config['enm_path']
@@ -133,75 +171,31 @@ if __name__=='__main__':
             labels.append([float(label) for label in _split_line[1].split(", ")])
             enm_vals.append(enm_vals_dict[_split_line[0]])
 
-    # Add label column
+    # Add label and enm_vals columns
     df["label"] = labels
-    # warnings.warn("The labels are now the RMSF values directly!")
     df["enm_vals"] = enm_vals
-
-    train,valid,test = do_topology_split(df, SPLITS_PATH)
-    train = train[["sequence", "label", "enm_vals"]]
-    valid = valid[["sequence", "label", "enm_vals"]]
-    test = test[["sequence", "label", "enm_vals"]]
     
-    train.reset_index(drop=True,inplace=True)
-    valid.reset_index(drop=True,inplace=True)
-    test.reset_index(drop=True,inplace=True)
-
-    # Replace invalid labels (>900) with -100 (will be ignored by pytorch loss)
-    train['label'] = train.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-    valid['label'] = valid.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-    test['label'] = test.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-
-    # Preprocess inputs for the model
-    # Replace uncommon AAs with "X"
-    train_df["sequence"]=train_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
-    valid_df["sequence"]=valid_df["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
-    # Add spaces between each amino acid for PT5 to correctly use them
-    train_df['sequence']=train_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
-    valid_df['sequence']=valid_df.apply(lambda row : " ".join(row["sequence"]), axis = 1)
-
-
-    # Create Datasets
-    train_set=create_dataset(tokenizer,list(train_df['sequence']),list(train_df['label']),list(train_df['enm_vals']))
-    valid_set=create_dataset(tokenizer,list(valid_df['sequence']),list(valid_df['label']),list(valid_df['enm_vals']))
-    
-    #     # Set all random seeds
+    ### Set all random seeds
     set_seeds(config['seed'])
         
-    # load model
+    ### Load model
     class_config=ClassConfig(config)
     model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
-
     
+    ### Split data into train, valid, test and preprocess
+    train,valid,test = do_topology_split(df, SPLITS_PATH)
+    train_set, valid_set, test = preprocess_data(tokenizer, train, valid, test)
+    
+    ### Set training arguments
     training_args = TrainingArguments(**config['training_args'])
     
-    #TODO: from here
-        # Metric definition for validation data
-        def compute_metrics(eval_pred):
+    ### For token classification (regression) we need a data collator here to pad correctly
+    data_collator = DataCollatorForTokenRegression(tokenizer)
 
-            predictions, labels = eval_pred
-            predictions=predictions.flatten()
-            labels=labels.flatten()
-
-            valid_labels=labels[np.where((labels != -100 ) & (labels < 900 ))]
-            valid_predictions=predictions[np.where((labels != -100 ) & (labels < 900 ))]
-            #assuming the ENM vals are subtracted from the labels for correct evaluation
-            spearman = load("spearmanr")
-            pearson = load("pearsonr")
-            mse = load("mse")
-            return {"spearmanr": spearman.compute(predictions=valid_predictions, references=valid_labels)['spearmanr'],
-                    "pearsonr": pearson.compute(predictions=valid_predictions, references=valid_labels)['pearsonr'],
-                    "mse": mse.compute(predictions=valid_predictions, references=valid_labels)['mse']}
-
-            #return metric.compute(predictions=valid_predictions, references=valid_labels)
-
-        # For token classification we need a data collator here to pad correctly
-        data_collator = DataCollatorForTokenRegression(tokenizer) 
-
-        # Trainer          
-        trainer = ENMAdaptedTrainer(
+    ### Trainer          
+    trainer = ENMAdaptedTrainer(
             model,
-            args,
+            training_args,
             train_dataset=train_set,
             eval_dataset=valid_set,
             tokenizer=tokenizer,
@@ -209,17 +203,15 @@ if __name__=='__main__':
             compute_metrics=compute_metrics
         )
 
-        # Train model
-        trainer.train()
-
-        save_finetuned_model(trainer.model,"./results_"+run_name)
+    ### Train model and save
+    trainer.train()
+    save_finetuned_model(trainer.model,config['training_args']['output_dir'])
         
-        return tokenizer, model, trainer.state.log_history
-    
-    tokenizer, model, history = train_per_residue(args.run_name, train, valid, num_labels=1, batch=args.batch_size, accum=args.gradient_accumulation_steps, 
-                                                  epochs=args.epochs, seed=42, gpu=1, mixed = args.mixed_precision, save_steps=args.save_steps, 
-                                                  add_pearson_loss=args.add_pearson_loss, add_sse_loss=args.add_sse_loss,
-                                                  adaptor_architecture = args.adaptor_architecture, enm_embed_dim = args.enm_embed_dim,
-                                                  enm_att_heads = args.enm_att_heads, num_layers = args.num_layers, kernel_size = args.kernel_size)
+    # #TODO review below
+    # tokenizer, model, history = train_per_residue(args.run_name, train, valid, num_labels=1, batch=args.batch_size, accum=args.gradient_accumulation_steps, 
+    #                                               epochs=args.epochs, seed=42, gpu=1, mixed = args.mixed_precision, save_steps=args.save_steps, 
+    #                                               add_pearson_loss=args.add_pearson_loss, add_sse_loss=args.add_sse_loss,
+    #                                               adaptor_architecture = args.adaptor_architecture, enm_embed_dim = args.enm_embed_dim,
+    #                                               enm_att_heads = args.enm_att_heads, num_layers = args.num_layers, kernel_size = args.kernel_size)
 
 

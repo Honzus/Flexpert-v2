@@ -4,6 +4,7 @@ import json
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.utils import PaddingStrategy
 from transformers.data.data_collator import DataCollatorMixin
+from evaluate import load
 from transformers import Trainer, set_seed
 from torch.nn import MSELoss
 from dataclasses import dataclass
@@ -213,3 +214,21 @@ class ClassConfig:
         # Set class attributes based on the loaded YAML config
         for key, value in config.items():
             setattr(self, key, value)
+
+def compute_metrics(eval_pred):
+    """
+    Compute metrics for evaluation - used by the HuggingFace Trainer
+    """
+    predictions, labels = eval_pred
+    predictions=predictions.flatten()
+    labels=labels.flatten()
+
+    valid_labels=labels[np.where((labels != -100 ) & (labels < 900 ))]
+    valid_predictions=predictions[np.where((labels != -100 ) & (labels < 900 ))]
+    #assuming the ENM vals are subtracted from the labels for correct evaluation
+    spearman = load("spearmanr")
+    pearson = load("pearsonr")
+    mse = load("mse")
+    return {"spearmanr": spearman.compute(predictions=valid_predictions, references=valid_labels)['spearmanr'],
+            "pearsonr": pearson.compute(predictions=valid_predictions, references=valid_labels)['pearsonr'],
+            "mse": mse.compute(predictions=valid_predictions, references=valid_labels)['mse']}
