@@ -1,15 +1,7 @@
-from data_utils import parse_PDB
+from data_utils import parse_PDB, align_pdb_dict_formats
 import os
 import re
 import json
-def align_pdb_dict_formats(pdb_dict,chain):
-    new_dict = {}
-    new_dict['seq'] = pdb_dict[f'seq_chain_{chain}']
-    new_dict['coords'] = pdb_dict[f'coords_chain_{chain}']
-    new_dict['num_chains'] = pdb_dict['num_of_chains']
-    new_dict['name'] = pdb_dict['name']
-    new_dict['CATH'] = ["1.10.150", "3.30.160", "1.10.443"]
-    return new_dict
 
 
 # pdb_dict = parse_PDB('data/fold_1/1ceeB2k42A_1cee_B.pdb',name='test', input_chain_list=['B'])[0] #CAREFUL THE DSSP WAS DEACTIVATED DUE TO ERRORS
