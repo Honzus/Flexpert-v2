@@ -5,7 +5,19 @@ The `environment.txt` file can be used to create your Python environment.
 Alternatively, use the Docker (Singularity) images with PyTorch, PyTorch Geometric and Pytorch Lightning built for (i) NVIDIA GPUs (CUDA), (ii) AMD GPUs (ROCm), see example below:
 
 ```
-TODO: instructions for singularity
+#Set environment variables for singularity cache, it should be on a disc with enough free space (tens of GB) - the provided path is an example which works well for our cluster
+export SINGULARITY_TMPDIR=/tmp/USERNAME
+export SINGULARITY_CACHEDIR=/tmp/USERNAME
+
+#For AMD GPUs pull this image:
+singularity pull docker://koubic/lumi-pyg-lightning-tk:latest
+
+#For GPUs with CUDA support pull this:
+singularity pull docker://koubic/karolina_cuda_pyg:latest
+
+#On the GPU node (e.g. after allocating interactive job on a GPU node), activate the singularity container e.g. like this (mounting the /scratch drive, mount the directory relevant for you):
+singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash
+
 ```
 
 Some packages might still be missing, but the crucial packages depending on the GPU drivers should work properly. The missing packages can be installed with pip.
