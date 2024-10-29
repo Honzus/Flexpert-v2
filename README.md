@@ -16,7 +16,7 @@ singularity pull docker://koubic/lumi-pyg-lightning-tk:latest
 singularity pull docker://koubic/karolina_cuda_pyg:latest
 
 #On the GPU node (e.g. after allocating interactive job on a GPU node), activate the singularity container e.g. like this (mounting the /scratch drive, mount the directory relevant for you):
-singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash
+singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash #Or use the other container in case of CUDA machine
 
 ```
 
@@ -26,7 +26,10 @@ We will provide a complete image in the future.
 
 ### Data
 
+The preprocessed ATLAS dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
+
 TODO
+``` ```
 
 ### Analysis of the flexibility metrics
 
