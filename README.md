@@ -28,13 +28,11 @@ We will provide a complete image in the future.
 
 The preprocessed ATLAS dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
 
-TODO
-``` ```
+TODO: start with "RMSF predictor training" notes
 
-### Analysis of the flexibility metrics
+``` 
 
-TODO
-
+```
 
 ### Training Flexpert-Seq and Flexpert-3D
 
@@ -54,5 +52,10 @@ python3 train.py --run_name testrun-3D --adaptor_architecture conv
 ```
 
 ### Inference with Flexpert-Seq and Flexpert-3D
+
+TODO
+
+
+### Analysis of the flexibility metrics
 
 TODO
