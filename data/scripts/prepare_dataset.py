@@ -14,7 +14,7 @@ fold_files = [filename for filename in fold_files if re.match(".*\.pdb$", filena
 
 for file in tqdm(fold_files):
     _name= file.split('_')[0]
-    _chain = file.split('_')[1]
+    _chain = file.split('_')[1].split('.')[0]
     _path = f'{in_dir}/{file}'
     old_pdb = parse_PDB(_path,name=_name, input_chain_list=[_chain])[0]
     new_pdb = align_pdb_dict_formats(old_pdb,_chain)

@@ -228,6 +228,6 @@ def align_pdb_dict_formats(pdb_dict,chain):
     new_dict['seq'] = pdb_dict[f'seq_chain_{chain}']
     new_dict['coords'] = pdb_dict[f'coords_chain_{chain}']
     new_dict['num_chains'] = pdb_dict['num_of_chains']
-    new_dict['name'] = pdb_dict['name']
+    new_dict['name'] = pdb_dict['name'] +"_"+chain
     new_dict['CATH'] = ["1.10.150", "3.30.160", "1.10.443"]
     return new_dict
