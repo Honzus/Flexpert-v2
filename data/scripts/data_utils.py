@@ -98,70 +98,19 @@ def parse_PDB_biounits(x, sse,ssedssp,atoms=['N', 'CA', 'C'], chain=None):
     seq_, xyz_ ,sse_,ssedssp_= [], [], [], []
     dsspidx=0
     sseidx=0
-    # try:
-    #     for resn in range(min_resn, max_resn + 1):
-    #         if resn in seq:
-    #             for k in sorted(seq[resn]):
-    #                 seq_.append(aa_3_N.get(seq[resn][k], 20))
-    #                 try:
-    #                     if 'CA' in xyz[resn][k]:
-    #                         sse_.append(sse[sseidx])
-    #                         sseidx = sseidx + 1
-    #                     else:
-    #                         sse_.append('-')
-    #                 except:
-    #                     print('error sse')
-
-
-    #         else:
-    #             seq_.append(20)
-    #             sse_.append('-')
-
-    #         misschianatom = False
-    #         if resn in xyz:
-
-
-    #             for k in sorted(xyz[resn]):
-    #                 for atom in atoms:
-    #                     if atom in xyz[resn][k]:
-    #                         xyz_.append(xyz[resn][k][atom])  #some will miss C and O ,but sse is normal,because sse just depend on CA
-    #                     else:
-    #                         xyz_.append(np.full(3, np.nan))
-    #                         misschianatom=True
-    #                 if misschianatom:
-    #                     ssedssp_.append('-')
-    #                     misschianatom = False
-    #                 else:
-    #                     try:
-    #                         ssedssp_.append(ssedssp[dsspidx])         # if miss chain atom,xyz ,seq think is ok , but dssp miss this
-    #                         dsspidx = dsspidx + 1
-    #                     except:
-    #                         print(dsspidx)
-
-
-    #         else:
-    #             for atom in atoms:
-    #                 xyz_.append(np.full(3, np.nan))
-    #             ssedssp_.append('-')
-
-
-    #     return np.array(xyz_).reshape(-1, len(atoms), 3), N_to_AA(np.array(seq_)),np.array(sse_),np.array(ssedssp_)
-    # except TypeError as e:
-    #     print(f"TypeError: {e}")
-    #     return 'no_chain', 'no_chain','no_chain'
 
     for resn in range(int(min_resn), int(max_resn + 1)):
         if resn in seq:
             for k in sorted(seq[resn]):
                 seq_.append(aa_3_N.get(seq[resn][k], 20))
-                try:
-                    if 'CA' in xyz[resn][k]:
-                        sse_.append(sse[sseidx])
-                        sseidx = sseidx + 1
-                    else:
-                        sse_.append('-')
-                except:
-                    print('error sse')
+                # try:
+                #     if 'CA' in xyz[resn][k]:
+                #         sse_.append(sse[sseidx])
+                #         sseidx = sseidx + 1
+                #     else:
+                #         sse_.append('-')
+                # except:
+                #     print('error sse')
 
 
         else:
@@ -187,7 +136,8 @@ def parse_PDB_biounits(x, sse,ssedssp,atoms=['N', 'CA', 'C'], chain=None):
                         ssedssp_.append(ssedssp[dsspidx])         # if miss chain atom,xyz ,seq think is ok , but dssp miss this
                         dsspidx = dsspidx + 1
                     except:
-                        print(dsspidx)
+                        pass
+                        # print(dsspidx)
 
 
         else:
