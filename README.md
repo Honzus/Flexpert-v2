@@ -1,3 +1,5 @@
+TODO: cite and link ATLAS and ProtTrans finetuning repo + paper
+
 ### Environment
 
 The `environment.txt` file can be used to create your Python environment.
@@ -24,14 +26,22 @@ Some packages might still be missing, but the crucial packages depending on the 
 
 We will provide a complete image in the future.
 
+Note: In our environment, Python is called "python3" thats why we use it in the commands. For different users it might be called just "python".
+
 ### Data
 
 The preprocessed ATLAS dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
 
-TODO: start with "RMSF predictor training" notes
+1) Paths for input PDBs and for output directory where to store preprocessed data can be set in `configs/data_config.yaml`.
+
+2) Inside `data/PDBs` place the PDB files of the proteins you want in your dataset. We provide 10 example PDBs from the ATLAS dataset in this repo. The PDB files should be named according to the ATLAS dataset naming convention: PDBCODE_CHAINCODE.pdb (e.g. 1ah7_A.pdb).
+
+3) Run:
+
+TODO: describe what it is for
 
 ``` 
-
+python3 data/scripts/prepare_dataset.py
 ```
 
 ### Training Flexpert-Seq and Flexpert-3D
