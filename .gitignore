@@ -168,3 +168,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 core
+data/atlas/slurm_out/
+data/atlas/download_analyses.sbatch
+data/atlas/zipped_files/*.zip
