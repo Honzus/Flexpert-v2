@@ -38,11 +38,21 @@ The preprocessed ATLAS dataset with topology splits is provided in the folder `d
 
 3) Run:
 
-TODO: describe what it is for
-
 ``` 
 python3 data/scripts/prepare_dataset.py
 ```
+
+This prepares the `chain_set.jsonl` file, based on the PDB files. Most importantly, it extracts the sequence and the backbone coordinates.
+
+4) Run:
+
+```
+python3 data/scripts/get_enm_fluctuations_for_dataset.py --enm ANM
+```
+
+This computes the Elastic Network Models (ENM) estimation of per-residue fluctuations for the input dataset. The paths to input file (backbones_dataset_path) and where to output the files with the computed fluctuations are set in `configs/data_config.yaml`. This example uses Anisotropic Network Models (ANM) in particular, but it can also run with Gaussian Network Models (GNM) when specified by the argument.
+
+Alternatively, when specified in the configs, it can also read a .csv file on the input containing paths to PDB files and compute the ENM from there, without the precomputed `chain_set.jsonl` file.
 
 ### Training Flexpert-Seq and Flexpert-3D
 

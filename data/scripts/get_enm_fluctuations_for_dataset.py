@@ -6,7 +6,8 @@ from biotite.structure.io.pdb import PDBFile
 import pdb
 import os
 import json
-import tqdm
+from tqdm import tqdm
+import yaml
 
 def get_fluctuation_for_pdbfile(pdb_name, pdb_path, chain = None, enm_type = 'ANM'): 
     if enm_type not in ('ANM', 'GNM'):
@@ -82,19 +83,19 @@ def write_jsonl(jsonl, output_filename):
 
 
 if __name__ == "__main__":
-    from tqdm import tqdm
     import argparse
     parser = argparse.ArgumentParser(description='Calculate fluctuations for a dataset of pdb files')
-    parser.add_argument('--input_structures', type=str, help='Path to a csv file containing the paths to the pdb files, in the format: pdb_name, pdb_path or a json file in the CATH dataset format.')
-    parser.add_argument('--output_filename', type=str, help='Path where to store the results.')
     parser.add_argument('--enm', type=str, default='ANM', help='Select ANM or GNM.')
     parser.add_argument('--subselect_chain', type=int, default=0, help='If set to 1, the name of the PDB is assumed to be in the format PDB_CHAINID and used to explicitely read just the chain.')
     #add store_true argument flag to distinguish chains, by default no flag means False, if flag added set it to true
 
     args = parser.parse_args()
 
-    if args.input_structures.endswith('.csv'):
-        with open(args.input_structures, 'r') as f:
+    in_path = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['backbones_dataset_path']
+    out_path = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['out_enm_dataset_path'].format(args.enm)
+
+    if in_path.endswith('.csv'):
+        with open(in_path, 'r') as f:
             pdb_paths = {line.strip().split(',')[0]: line.strip().split(',')[1] for line in f.readlines()}
         outputs = []
         for pdb_name, pdb_path in tqdm(pdb_paths.items()):
@@ -105,17 +106,17 @@ if __name__ == "__main__":
             flucts, sequence = get_fluctuation_for_pdbfile(pdb_name=pdb_name, pdb_path=pdb_path, enm_type=args.enm, chain=chain)
             outputs.append({'pdb_name': pdb_name, 'fluctuations': flucts.tolist(), 'sequence': sequence})
 
-    elif args.input_structures.endswith('.jsonl'):
-        with open(args.input_structures, 'r') as f:
+    elif in_path.endswith('.jsonl'):
+        with open(in_path, 'r') as f:
             lines = f.readlines()
             dicts = [json.loads(line.strip()) for line in lines]
         outputs = []
-        for _dict in tqdm.tqdm(dicts):
+        for _dict in tqdm(dicts):
             #TODO: do I need to subselect the chain here?
             flucts, sequence = get_fluctuation_for_json_dict(_dict, enm_type=args.enm)
             outputs.append({'pdb_name': '_'.join(_dict['name'].split('.')), 'fluctuations': flucts.tolist(), 'sequence': sequence})
         #raise NotImplementedError('TODO: Implement the parsing of the .json') #TODO: implement this part to read the CATH4.3 dataset from the json(l)
     else:
-        raise ValueError("input_structures are expected to be a csv file or a json file")
+        raise ValueError("input_structures are expected to be a csv file or a jsonl file")
 
-    write_jsonl(outputs, args.output_filename)
+    write_jsonl(outputs, out_path)
