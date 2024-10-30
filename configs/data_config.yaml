@@ -1,1 +1,2 @@
 pdb_dir: "data/PDBs"
+preprocessed_dir: "data/custom_dataset"
