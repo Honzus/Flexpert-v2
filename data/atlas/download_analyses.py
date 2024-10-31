@@ -1,7 +1,10 @@
 import time
 import requests
 from tqdm import tqdm
-#import pdb
+import zipfile
+import io
+import os
+import yaml
 
 def download_url(url, retries=3, backoff_factor=0.5):
     """Download the content from a URL with retries.
@@ -27,20 +30,43 @@ def download_url(url, retries=3, backoff_factor=0.5):
     print("All retries failed.")
     return None
 
-with open('2022_06_13_ATLAS_pdb.txt','r') as pdb_codes_file:
-    pdb_codes = pdb_codes_file.readlines()
-    pdb_codes = [p.strip() for p in pdb_codes]
+# Option 1: Direct unzip from response content
+def save_and_unzip_response(response, extract_path):
+    """
+    Directly unzip response content to a directory without saving zip file
+    
+    Args:
+        response: requests response object
+        extract_path (str): Directory to extract files to
+    """
+    # Create a BytesIO object from the response content
+    zip_bytes = io.BytesIO(response.content)
+    
+    # Extract using zipfile
+    with zipfile.ZipFile(zip_bytes) as zip_ref:
+        zip_ref.extractall(extract_path)
 
-# Example usage:
-url_base = "https://www.dsimb.inserm.fr/ATLAS/api/ATLAS/analysis/"
+if __name__== "__main__":
+    pdb_codes_path = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['pdb_codes_path']
+    out_dir = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['atlas_out_dir']
 
-for pdb_code in tqdm(pdb_codes):
-    url = url_base + pdb_code
-    #pdb.set_trace()
-    response = download_url(url)
+    os.makedirs(out_dir, exist_ok=True)
 
-    if response.status_code == 200:
-        # Open a file in binary write mode
-        with open('zipped_files/'+pdb_code+'_analysis.zip', 'wb') as fileout:
-            # Write the content of the response to the file
-            fileout.write(response.content)
+    # Read the list of PDB codes from the file
+    with open(pdb_codes_path,'r') as pdb_codes_file:
+        pdb_codes = pdb_codes_file.readlines()
+        pdb_codes = [p.strip() for p in pdb_codes]
+
+    # Example usage:
+    url_base = "https://www.dsimb.inserm.fr/ATLAS/api/ATLAS/analysis/"
+
+    for pdb_code in tqdm(pdb_codes):
+        url = url_base + pdb_code
+        #pdb.set_trace()
+        response = download_url(url)
+
+        if response and response.status_code == 200:
+            # Extract directly to a directory
+            extract_path = os.path.join(out_dir, pdb_code)
+            os.makedirs(extract_path, exist_ok=True)
+            save_and_unzip_response(response, extract_path)
