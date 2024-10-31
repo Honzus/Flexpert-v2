@@ -171,3 +171,4 @@ core
 data/atlas/slurm_out/
 data/atlas/download_analyses.sbatch
 data/atlas/zipped_files/*.zip
+data/atlas/analyses
