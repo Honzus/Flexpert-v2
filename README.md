@@ -54,6 +54,20 @@ This computes the Elastic Network Models (ENM) estimation of per-residue fluctua
 
 Alternatively, when specified in the configs, it can also read a .csv file on the input containing paths to PDB files and compute the ENM from there, without the precomputed `chain_set.jsonl` file.
 
+
+## Reproduction of the dataset of RMSF labels from the ATLAS dataset:
+
+This can take few hours and a significant disc space, as it calls the ATLAS dataset API, downloads the data (including the MD simulations), unzips the data and stores it. It is not necessary to run it for the reproduction as we already provide the preprocessed ATLAS in the repo. If you are building your own dataset, this might be irrelevant, unless your proteins of interest are included in the ATLAS dataset.
+
+To download ATLAS dataset (in order to obtain the RMSF labels for the training), run the following command:
+
+```
+python3 data/atlas/download_analyses.py
+```
+
+TODO:
+
+
 ### Training Flexpert-Seq and Flexpert-3D
 
 Inside `config/` review the 3 config files: 
