@@ -1,6 +1,6 @@
 TODO: cite and link ATLAS and ProtTrans finetuning repo + paper
 
-### Environment
+## Environment
 
 The `environment.txt` file can be used to create your Python environment.
 
@@ -28,7 +28,7 @@ We will provide a complete image in the future.
 
 Note: In our environment, Python is called "python3" thats why we use it in the commands. For different users it might be called just "python".
 
-### Data
+## Data
 
 The preprocessed ATLAS dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
 
@@ -55,7 +55,7 @@ This computes the Elastic Network Models (ENM) estimation of per-residue fluctua
 Alternatively, when specified in the configs, it can also read a .csv file on the input containing paths to PDB files and compute the ENM from there, without the precomputed `chain_set.jsonl` file.
 
 
-## Reproduction of the dataset of RMSF labels from the ATLAS dataset:
+### Reproduction of the dataset of RMSF labels from the ATLAS dataset:
 
 This can take few hours and a significant disc space, as it calls the ATLAS dataset API, downloads the data (including the MD simulations), unzips the data and stores it. It is not necessary to run it for the reproduction as we already provide the preprocessed ATLAS in the repo. If you are building your own dataset, this might be irrelevant, unless your proteins of interest are included in the ATLAS dataset.
 
@@ -68,7 +68,7 @@ python3 data/atlas/download_analyses.py
 TODO:
 
 
-### Training Flexpert-Seq and Flexpert-3D
+## Training Flexpert-Seq and Flexpert-3D
 
 Inside `config/` review the 3 config files: 
 
@@ -85,11 +85,11 @@ python3 train.py --run_name testrun-Seq --adaptor_architecture no-adaptor
 python3 train.py --run_name testrun-3D --adaptor_architecture conv
 ```
 
-### Inference with Flexpert-Seq and Flexpert-3D
+## Inference with Flexpert-Seq and Flexpert-3D
 
 TODO
 
 
-### Analysis of the flexibility metrics
+## Analysis of the flexibility metrics
 
 TODO
