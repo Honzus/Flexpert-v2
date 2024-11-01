@@ -5,3 +5,4 @@ out_enm_dataset_path: "data/custom_dataset/{}_dataset.jsonl" #the {enm} part wil
 fasta_dataset_path: "data/custom_dataset/fasta_dataset.fasta"
 pdb_codes_path: "data/atlas/2022_06_13_ATLAS_pdb.txt"
 atlas_out_dir: "data/atlas/analyses"
+atlas_labels_path: "data/custom_dataset/rmsf_atlas_data_prottransready.txt"
