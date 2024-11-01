@@ -65,7 +65,13 @@ To download ATLAS dataset (in order to obtain the RMSF labels for the training),
 python3 data/atlas/download_analyses.py
 ```
 
-TODO:
+To extract the RMSF labels from the ATLAS dataset run:
+
+```
+python3 data/scripts/extract_rmsf_labels.py
+```
+
+Paths for input / output for the RMSF label extraction can be modified in `configs/data_config.yml`.
 
 
 ## Training Flexpert-Seq and Flexpert-3D
