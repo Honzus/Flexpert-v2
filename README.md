@@ -1,5 +1,3 @@
-TODO: cite and link ATLAS and ProtTrans finetuning repo + paper
-
 ## Environment
 
 The `environment.txt` file can be used to create your Python environment.
