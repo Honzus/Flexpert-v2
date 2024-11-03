@@ -30,7 +30,7 @@ Note: In our environment, Python is called "python3" thats why we use it in the 
 
 ## Data
 
-The preprocessed ATLAS dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
+The preprocessed [ATLAS](https://www.dsimb.inserm.fr/ATLAS/download.html) dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
 
 1) Paths for input PDBs and for output directory where to store preprocessed data can be set in `configs/data_config.yaml`.
 
@@ -73,6 +73,7 @@ python3 data/scripts/extract_rmsf_labels.py
 
 Paths for input / output for the RMSF label extraction can be modified in `configs/data_config.yml`.
 
+If you use the ATLAS dataset, please cite the [paper](https://academic.oup.com/nar/article/52/D1/D384/7438909?login=false) by Meersche et al.
 
 ## Training Flexpert-Seq and Flexpert-3D
 
@@ -90,6 +91,8 @@ python3 train.py --run_name testrun-Seq --adaptor_architecture no-adaptor
 #For training Flexpert-3D:
 python3 train.py --run_name testrun-3D --adaptor_architecture conv
 ```
+
+The code for the LoRA fine-tuning of protein language models is derived from [this repo](https://github.com/agemagician/ProtTrans/tree/master/Fine-Tuning) accompanying the [paper](https://www.nature.com/articles/s41467-024-51844-2) "Fine-tuning protein language models boosts predictions across diverse tasks" by Schmirler et al.
 
 ## Inference with Flexpert-Seq and Flexpert-3D
 
