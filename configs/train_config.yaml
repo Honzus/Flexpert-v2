@@ -6,12 +6,12 @@ batch_size: 4
 epochs: 100
 add_pearson_loss: False
 add_sse_loss: False
-enm_embed_dim: 512
+enm_embed_dim: 128
 enm_att_heads: 8
-num_layers: 2
-kernel_size: 3
+num_layers: 3
+kernel_size: 5
 mixed_precision: False
-gradient_accumulation_steps: 1
+gradient_accumulation_steps: 8
 seed: 42
 adaptor_architecture: null
 run_name: null
@@ -32,3 +32,9 @@ training_args:
   save_steps: 528
   save_total_limit: 3
   logging_strategy: 'epoch'
+
+inference_args:
+  device: 'cuda:0'
+  seq_model_path: ./models/weights/flexpert_seq_weights.bin
+  3d_model_path: ./models/weights/flexpert_3d_weights.bin
+  enm_type: 'ANM'
