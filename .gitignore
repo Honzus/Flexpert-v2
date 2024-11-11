@@ -174,3 +174,6 @@ data/atlas/zipped_files/*.zip
 data/atlas/analyses
 data/custom_dataset/rmsf_atlas_data_prottransready.txt
 models/weights/
+slurm_out/
+*.sbatch
+slurm*.out
