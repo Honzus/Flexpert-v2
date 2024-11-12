@@ -62,38 +62,22 @@ if __name__ == "__main__":
         model.load_state_dict(state_dict, strict=False)
     model.eval()
 
-    #TODO: get ENM for the backbones
-    flucts_list = []
-    tokenized_seqs = []
-    attention_masks = []
+    data_to_collate = []
     for backbone, sequence in zip(backbones, sequences):
         _dict = {'coords': backbone, 'seq': sequence}
         flucts, _ = get_fluctuation_for_json_dict(_dict, enm_type = config['inference_args']['enm_type'])
         flucts = flucts.tolist()
         flucts.append(0.0) #To match the special token for the sequence
         flucts = torch.tensor(flucts)
-        flucts_list.append(flucts.unsqueeze(0))
         
         tokenizer_out = tokenizer(' '.join(sequence), add_special_tokens=True, return_tensors='pt')
         tokenized_seq, attention_mask = tokenizer_out['input_ids'], tokenizer_out['attention_mask']
-        tokenized_seqs.append(tokenized_seq)
-        attention_masks.append(attention_mask)
 
-
-    import pdb; pdb.set_trace()
-
-    #TODO: START FROM HERE collate the batch using the flucts_list, tokenized_seqs and attention_masks
-    
-    # Create a features dict that matches training format
-    features = {
-        'input_ids': tokenized['input_ids'],
-        'attention_mask': tokenized['attention_mask'],
-        'enm_vals': flucts_list[0]  # Assuming single sequence prediction
-    }
+        data_to_collate.append({'input_ids': tokenized_seq[0,:], 'attention_mask': attention_mask[0,:], 'enm_vals': flucts})
 
     # Use the data collator to process the input
     data_collator = DataCollatorForTokenRegression(tokenizer)
-    batch = data_collator([features])  # Wrap in list since collator expects batch
+    batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
 
     # Move to device
     batch = {k: v.to(config['inference_args']['device']) for k, v in batch.items()}
@@ -101,13 +85,4 @@ if __name__ == "__main__":
     # Predict
     with torch.no_grad():
         outputs = model(**batch)
-        predictions = outputs.logits
-
-    #TODO: predict the batches    
-
-    # #predict a single sequence
-    # seq_tokens = tokenizer.encode(' '.join(sequence), add_special_tokens=True)
-    # seq_tokens = torch.tensor(seq_tokens).unsqueeze(0).to(config['inference_args']['device'])
-    # with torch.no_grad():
-    #     output = model(seq_tokens)
-    # import pdb; pdb.set_trace()
+        predictions = outputs.logits[:,:,0]
