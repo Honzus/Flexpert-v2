@@ -43,7 +43,7 @@ from datetime import datetime
 # from utils.lora_utils import LoRAConfig, modify_with_lora
 from utils.utils import (
     ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, 
-    DataCollatorForTokenRegression, do_topology_split, update_config, compute_metrics
+    DataCollatorForTokenRegression_esm, do_topology_split, update_config, compute_metrics
 )
 from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
 from models.enm_adaptor_heads import (
@@ -190,7 +190,7 @@ if __name__=='__main__':
     training_args = TrainingArguments(**config['training_args'])
     
     ### For token classification (regression) we need a data collator here to pad correctly
-    data_collator = DataCollatorForTokenRegression(tokenizer)
+    data_collator = DataCollatorForTokenRegression_esm(tokenizer)
 
     ### Trainer          
     trainer = ENMAdaptedTrainer(
