@@ -6,6 +6,7 @@ import argparse
 import os
 import yaml
 import torch
+from Bio import SeqIO
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -22,7 +23,16 @@ if __name__ == "__main__":
     if suffix == ".fasta":
         if args.modality == "3D":
             raise ValueError("Flexpert-3D needs the structure, fasta is not enough")
-        raise NotImplementedError("JSONL file is not supported yet")
+
+        sequences = []
+        names = []
+        backbones = []
+        # Load FASTA file using Biopython
+        for record in SeqIO.parse(args.input_file, "fasta"):
+            names.append(record.name)
+            sequences.append(str(record.seq))
+            backbones.append(None)
+
     elif suffix == ".pdb":
         parsed_name = filename.split('/')[-1].split('_')
         if len(parsed_name[0]) != 4 or len(parsed_name[1]) != 1 or not parsed_name[1].isalpha():
@@ -33,6 +43,7 @@ if __name__ == "__main__":
         backbone, sequence = parsed_pdb['coords_chain_{}'.format(_chain)], parsed_pdb['seq_chain_{}'.format(_chain)]
         backbones = [backbone]
         sequences = [sequence]
+        names = [_name+"_"+_chain]
     elif suffix == ".jsonl":
         raise NotImplementedError("JSONL file is not supported yet")
     else:
@@ -47,8 +58,6 @@ if __name__ == "__main__":
     # Set gpu device
     os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
 
-
-
     config = yaml.load(open('configs/train_config.yaml', 'r'), Loader=yaml.FullLoader)
     class_config=ClassConfig(config)
     class_config.adaptor_architecture = 'no-adaptor' if args.modality == 'SEQ' else 'conv'
@@ -56,7 +65,8 @@ if __name__ == "__main__":
 
     model.to(config['inference_args']['device'])
     if args.modality == 'SEQ':
-        raise NotImplementedError("Seq model is not supported yet - paste it in once retrained")
+        state_dict = torch.load(config['inference_args']['seq_model_path'], map_location=config['inference_args']['device'])
+        model.load_state_dict(state_dict, strict=False)
     elif args.modality == '3D':
         state_dict = torch.load(config['inference_args']['3d_model_path'], map_location=config['inference_args']['device'])
         model.load_state_dict(state_dict, strict=False)
@@ -64,25 +74,31 @@ if __name__ == "__main__":
 
     data_to_collate = []
     for backbone, sequence in zip(backbones, sequences):
-        _dict = {'coords': backbone, 'seq': sequence}
-        flucts, _ = get_fluctuation_for_json_dict(_dict, enm_type = config['inference_args']['enm_type'])
-        flucts = flucts.tolist()
-        flucts.append(0.0) #To match the special token for the sequence
-        flucts = torch.tensor(flucts)
+        if args.modality == '3D':
+            _dict = {'coords': backbone, 'seq': sequence}
+            flucts, _ = get_fluctuation_for_json_dict(_dict, enm_type = config['inference_args']['enm_type'])
+            flucts = flucts.tolist()
+            flucts.append(0.0) #To match the special token for the sequence
+            flucts = torch.tensor(flucts).to(config['inference_args']['device'])
         
         tokenizer_out = tokenizer(' '.join(sequence), add_special_tokens=True, return_tensors='pt')
-        tokenized_seq, attention_mask = tokenizer_out['input_ids'], tokenizer_out['attention_mask']
-
-        data_to_collate.append({'input_ids': tokenized_seq[0,:], 'attention_mask': attention_mask[0,:], 'enm_vals': flucts})
+        tokenized_seq, attention_mask = tokenizer_out['input_ids'].to(config['inference_args']['device']), tokenizer_out['attention_mask'].to(config['inference_args']['device'])
+        
+        if args.modality == '3D':
+            data_to_collate.append({'input_ids': tokenized_seq[0,:], 'attention_mask': attention_mask[0,:], 'enm_vals': flucts})
+        elif args.modality == 'SEQ':
+            data_to_collate.append({'input_ids': tokenized_seq[0,:], 'attention_mask': attention_mask[0,:]})
 
     # Use the data collator to process the input
     data_collator = DataCollatorForTokenRegression(tokenizer)
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
 
-    # Move to device
-    batch = {k: v.to(config['inference_args']['device']) for k, v in batch.items()}
-
     # Predict
     with torch.no_grad():
         outputs = model(**batch)
         predictions = outputs.logits[:,:,0]
+
+    #TODO:  handle the 'enm_vals' key in the collate function
+    #TODO:  input for datasets / test split
+    #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
+    #       for dataset output the dataset with the predicted values - compatible with the flexibility scripts)
