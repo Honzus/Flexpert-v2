@@ -276,7 +276,7 @@ class DataCollatorForTokenRegression_esm(DataCollatorMixin):
         label_name = "label" if "label" in features[0].keys() else "labels"
         labels = [feature[label_name] for feature in features] if label_name in features[0].keys() else None
 
-        no_labels_features = [{k: v for k, v in feature.items() if k != label_name} for feature in features]
+        no_labels_features = [{k: v for k, v in feature.items() if k != label_name and k != 'enm_vals'} for feature in features]
 
         batch = self.tokenizer.pad(
             no_labels_features,
@@ -285,6 +285,19 @@ class DataCollatorForTokenRegression_esm(DataCollatorMixin):
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
+
+        # Handle ENM values padding
+        if "enm_vals" in features[0]:
+            max_length = batch["input_ids"].shape[1]
+            padded_enm_vals = []
+            for feature in features:
+                enm = feature['enm_vals']
+                if len(enm) < max_length:
+                    enm = enm + [0.0] * (max_length - len(enm))  # pad with zeros
+                elif len(enm) > max_length:
+                    enm = enm[:max_length]  # truncate
+                padded_enm_vals.append(enm)
+            batch["enm_vals"] = torch.tensor(padded_enm_vals, dtype=torch.float)
 
         if labels is None:
             return batch
@@ -300,13 +313,15 @@ class DataCollatorForTokenRegression_esm(DataCollatorMixin):
         if padding_side == "right": 
             # changed to pad the special tokens at the beginning and end of the sequence
             batch[label_name] = [
-                [self.label_pad_token_id] + to_list(label) + [self.label_pad_token_id] * (sequence_length - len(label)-1) for label in labels
-                ]                
+                [self.label_pad_token_id] + to_list(label) + [self.label_pad_token_id] * (sequence_length - len(label) - 1) 
+                for label in labels
+            ]                
         else:
             batch[label_name] = [
-                [self.label_pad_token_id] * (sequence_length - len(label)) + to_list(label) for label in labels
-                ]
-        # change datatype from torch.int64 to torch.float
+                [self.label_pad_token_id] * (sequence_length - len(label)) + to_list(label) 
+                for label in labels
+            ]
+
         batch[label_name] = torch.tensor(batch[label_name], dtype=torch.float)
         return batch
 

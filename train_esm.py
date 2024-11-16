@@ -1,6 +1,13 @@
-#import dependencies
 import os
 import yaml
+env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
+### Set environment variables
+# Set folder for huggingface cache
+os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
+# Set gpu device
+os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
+
+#import dependencies
 import numpy as np
 import torch
 import torch.nn as nn
@@ -46,6 +53,7 @@ from utils.utils import (
     DataCollatorForTokenRegression_esm, do_topology_split, update_config, compute_metrics
 )
 from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
+from models.ESM_per_token import ESM_classification_model, EsmForTokenRegression
 from models.enm_adaptor_heads import (
     ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
     ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
@@ -78,36 +86,36 @@ def parse_args():
     return parser.parse_args()
 
 def preprocess_data(tokenizer, train, valid, test):
-
-    train = train[["sequence", "label", "enm_vals"]]
-    valid = valid[["sequence", "label", "enm_vals"]]
-    test = test[["sequence", "label", "enm_vals"]]
+    # Create explicit copies of the dataframes
+    train = train[["sequence", "label", "enm_vals"]].copy()
+    valid = valid[["sequence", "label", "enm_vals"]].copy()
+    test = test[["sequence", "label", "enm_vals"]].copy()
     
-    train.reset_index(drop=True,inplace=True)
-    valid.reset_index(drop=True,inplace=True)
-    test.reset_index(drop=True,inplace=True)
+    train.reset_index(drop=True, inplace=True)
+    valid.reset_index(drop=True, inplace=True)
+    test.reset_index(drop=True, inplace=True)
 
-    # Replace invalid labels (>900) with -100 (will be ignored by pytorch loss)
-    train['label'] = train.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-    valid['label'] = valid.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
-    test['label'] = test.apply(lambda row:  [-100 if x > 900 else x for x in row['label']], axis=1)
+    # Use .loc for assignments
+    train.loc[:, 'label'] = train.apply(lambda row: [-100 if x > 900 else x for x in row['label']], axis=1)
+    valid.loc[:, 'label'] = valid.apply(lambda row: [-100 if x > 900 else x for x in row['label']], axis=1)
+    test.loc[:, 'label'] = test.apply(lambda row: [-100 if x > 900 else x for x in row['label']], axis=1)
 
-    # Preprocess inputs for the model
     # Replace uncommon AAs with "X"
-    train["sequence"]=train["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
-    valid["sequence"]=valid["sequence"].str.replace('|'.join(["O","B","U","Z","-"]),"X",regex=True)
-    # Add spaces between each amino acid for PT5 to correctly use them
-    train['sequence']=train.apply(lambda row : " ".join(row["sequence"]), axis = 1)
-    valid['sequence']=valid.apply(lambda row : " ".join(row["sequence"]), axis = 1)
-
+    train.loc[:, "sequence"] = train["sequence"].str.replace('|'.join(["O","B","U","Z","-"]), "X", regex=True)
+    valid.loc[:, "sequence"] = valid["sequence"].str.replace('|'.join(["O","B","U","Z","-"]), "X", regex=True)
+    
+    # Add spaces between each amino acid
+    train.loc[:, 'sequence'] = train.apply(lambda row: " ".join(row["sequence"]), axis=1)
+    valid.loc[:, 'sequence'] = valid.apply(lambda row: " ".join(row["sequence"]), axis=1)
 
     # Create Datasets
-    train_set=create_dataset(tokenizer,list(train['sequence']),list(train['label']),list(train['enm_vals']))
-    valid_set=create_dataset(tokenizer,list(valid['sequence']),list(valid['label']),list(valid['enm_vals']))
+    train_set = create_dataset(tokenizer, list(train['sequence']), list(train['label']), list(train['enm_vals']))
+    valid_set = create_dataset(tokenizer, list(valid['sequence']), list(valid['label']), list(valid['enm_vals']))
 
     return train_set, valid_set, test
 
 if __name__=='__main__':
+
     ### Read and update config
     args = parse_args()
     config = yaml.load(open('configs/train_config.yaml', 'r'), Loader=yaml.FullLoader)
@@ -127,13 +135,7 @@ if __name__=='__main__':
 
     print("Training with the following config: \n", config)
 
-    env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
 
-    ### Set environment variables
-    # Set folder for huggingface cache
-    os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
-    # Set gpu device
-    os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
     
     ### Initialize wandb
     wandb.init(project=env_config['wandb']['project'], name=config['run_name'], config = config)
@@ -180,7 +182,7 @@ if __name__=='__main__':
         
     ### Load model
     class_config=ClassConfig(config)
-    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    model, tokenizer = ESM_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
     
     ### Split data into train, valid, test and preprocess
     train,valid,test = do_topology_split(df, SPLITS_PATH)

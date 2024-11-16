@@ -40,6 +40,7 @@ class ENMAdaptedConvClassifier(nn.Module):
     def forward(self, seq_embedding, enm_input, attention_mask=None):
         enm_input = torch.nan_to_num(enm_input, nan=0.0)
         enm_input = enm_input.unsqueeze(1)
+        enm_input = enm_input.to(seq_embedding.device)
         conv_out = self.conv_net(enm_input)
         enm_embedding = conv_out.transpose(1,2)
         

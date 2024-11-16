@@ -8,7 +8,12 @@ from torch.nn import MSELoss
 from transformers.modeling_outputs import TokenClassifierOutput
 import numpy as np
 import re
-from transformers.models.lora.modeling_lora import LoRAConfig, modify_with_lora
+from utils.lora_utils import LoRAConfig, modify_with_lora
+from models.enm_adaptor_heads import (
+    ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
+    ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
+)
+from peft import LoraConfig, inject_adapter_in_model
 
 class EsmForTokenRegression(EsmPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -121,10 +126,12 @@ def ESM_classification_model(half_precision, class_config):
     print("ESM_Classifier\nTrainable Parameter: " + str(params))
     
     # Add model modification lora
-    config = LoRAConfig('configs/lora_config.yaml')
+    esm_lora_peft_config = LoraConfig(
+        r=4, lora_alpha=1, bias="all", target_modules=["query","key","value","dense"]
+    )
     
     # Add LoRA layers
-    class_model = modify_with_lora(class_model, config)
+    class_model.esm = inject_adapter_in_model(esm_lora_peft_config, class_model.esm) 
     
     # Freeze Encoder (except LoRA)
     for (param_name, param) in class_model.esm.named_parameters():
