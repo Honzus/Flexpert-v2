@@ -136,11 +136,12 @@ def ESM_classification_model(half_precision, class_config, lora_config):
     # Freeze Encoder (except LoRA)
     for (param_name, param) in class_model.esm.named_parameters():
         param.requires_grad = False
-
-    for (param_name, param) in class_model.named_parameters():
-        if re.fullmatch(lora_config.trainable_param_names, param_name):
-            param.requires_grad = True
     
+    for (param_name, param) in class_model.esm.named_parameters():
+        if re.fullmatch(".*lora.*", param_name): #".*layer_norm.*|.*lora_[ab].*"
+            param.requires_grad = True
+        if re.fullmatch(".*layer_norm.*", param_name): #".*layer_norm.*|.*lora_[ab].*"
+            param.requires_grad = True
     # Print trainable Parameter
     model_parameters = filter(lambda p: p.requires_grad, class_model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])

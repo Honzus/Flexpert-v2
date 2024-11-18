@@ -7,11 +7,8 @@ os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
 # Set gpu device
 os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
 
-# ### For Karolina trying to run the code, avoiding the accelerate errors ###
-# os.environ["ACCELERATE_DISABLE_RICH"] = "1"
-# # Optionally, you can also disable the version check specifically
-# os.environ["ACCELERATE_SKIP_CUDA_CHECK"] = "1"
-# ###########################################################################
+# squeeze memory usage
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 #import dependencies
 import numpy as np
@@ -65,6 +62,7 @@ from models.enm_adaptor_heads import (
     ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 )
 from utils.lora_utils import LoRAConfig
+import gc
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model on the CATH dataset')
@@ -196,110 +194,79 @@ if __name__=='__main__':
     ### Split data into train, valid, test and preprocess
     train,valid,test = do_topology_split(df, SPLITS_PATH)
     train_set, valid_set, test = preprocess_data(tokenizer, train, valid, test)
-    
-    ### Set training arguments
-    training_args = TrainingArguments(**config['training_args'])
+
+    # # ### Set training arguments
+    # training_args = TrainingArguments(
+    #     **config['training_args']
+    # )
     
     ### For token classification (regression) we need a data collator here to pad correctly
-    data_collator = DataCollatorForTokenRegression_esm(tokenizer)
+    data_collator = DataCollatorForTokenRegression_esm(tokenizer)    
 
-    ### Instead of using HuggingFace Trainer, create a simple training loop
-    def train_model(model, train_loader, valid_loader, config):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=config['training_args']['learning_rate'])
-        loss_fct = torch.nn.MSELoss()
+    # More aggressive memory management callback
+    class MemoryCallback(transformers.TrainerCallback):
+        def __init__(self):
+            self.step_count = 0
+            
+        def on_step_end(self, args, state, control, **kwargs):
+            # Clear memory every step
+            gc.collect()
+            torch.cuda.empty_cache()
+            
+            # Force a more aggressive memory cleanup every 50 steps
+            self.step_count += 1
+            if self.step_count % 64 == 0:
+                # Move model to CPU temporarily
+                model.cpu()
+                gc.collect()
+                torch.cuda.empty_cache()
+                model.to(args.device)
         
-        for epoch in range(config['epochs']):
-            # Training
-            model.train()
-            train_loss = 0
-            progress_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}')
-            
-            for batch in progress_bar:
-                # Move batch to device
-                batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
-                        for k, v in batch.items()}
-                
-                outputs = model(**batch)
-                logits = outputs.logits
-                labels = batch.get("labels")
-                mask = batch.get('attention_mask')
+        def on_evaluate(self, args, state, control, **kwargs):
+            gc.collect()
+            torch.cuda.empty_cache()
 
-                # Compute loss the same way as in ENMAdaptedTrainer
-                active_loss = mask.view(-1) == 1
-                active_logits = logits.view(-1)
-                active_labels = torch.where(
-                    active_loss, 
-                    labels.view(-1), 
-                    torch.tensor(-100).type_as(labels)
-                )
-                valid_logits = active_logits[active_labels != -100]
-                valid_labels = active_labels[active_labels != -100]
-                
-                loss = loss_fct(valid_labels, valid_logits)
-                
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                
-                train_loss += loss.item()
-                progress_bar.set_postfix({'loss': loss.item()})
-                
-                # Log to wandb if you're using it
-                wandb.log({"train_loss": loss.item()})
-            
-            # Validation
-            model.eval()
-            valid_loss = 0
-            with torch.no_grad():
-                for batch in tqdm(valid_loader, desc='Validation'):
-                    batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
-                            for k, v in batch.items()}
-                    outputs = model(**batch)
-                    logits = outputs.logits
-                    labels = batch.get("labels")
-                    mask = batch.get('attention_mask')
-
-                    # Same loss computation for validation
-                    active_loss = mask.view(-1) == 1
-                    active_logits = logits.view(-1)
-                    active_labels = torch.where(
-                        active_loss, 
-                        labels.view(-1), 
-                        torch.tensor(-100).type_as(labels)
-                    )
-                    valid_logits = active_logits[active_labels != -100]
-                    valid_labels = active_labels[active_labels != -100]
-                    
-                    loss = loss_fct(valid_labels, valid_logits)
-                    valid_loss += loss.item()
-            
-            valid_loss /= len(valid_loader)
-            print(f'Epoch {epoch+1}, Valid Loss: {valid_loss:.4f}')
-            wandb.log({"valid_loss": valid_loss})
-            
-            # Save checkpoint
-            if (epoch + 1) % config['training_args']['save_steps'] == 0:
-                save_path = os.path.join(config['training_args']['output_dir'], f'checkpoint-{epoch+1}')
-                os.makedirs(save_path, exist_ok=True)
-                model.save_pretrained(save_path)
-        
-        return model
-
-    # Replace the Trainer setup and training with:
-    train_loader = DataLoader(
-        train_set,
-        batch_size=config['batch_size'],
-        shuffle=True,
-        collate_fn=data_collator
-    )
-    valid_loader = DataLoader(
-        valid_set,
-        batch_size=config['batch_size'],
-        shuffle=False,
-        collate_fn=data_collator
+    # Modified training arguments with more aggressive memory settings
+    training_args = TrainingArguments(
+        **config['training_args'],
+        gradient_checkpointing=True,
+        max_grad_norm=1.0,
+        dataloader_num_workers=0,
+        dataloader_pin_memory=False,
+        optim='adamw_torch',  # Use PyTorch's native optimizer
     )
 
-    model = train_model(model, train_loader, valid_loader, config)
-    save_finetuned_model(model, config['training_args']['output_dir'])
+    # Enable gradient checkpointing in the model
+    model.gradient_checkpointing_enable()
+
+    # Clear memory before starting training
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    ### Trainer          
+    trainer = ENMAdaptedTrainer(
+            model,
+            training_args,
+            train_dataset=train_set,
+            eval_dataset=valid_set,
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_metrics,
+            callbacks=[MemoryCallback()]
+        )
+
+    # Optional: Monitor memory usage
+    def print_gpu_memory():
+        if torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated() / 1024**3
+            reserved = torch.cuda.memory_reserved() / 1024**3
+            print(f"GPU Memory allocated: {allocated:.2f} GB")
+            print(f"GPU Memory reserved: {reserved:.2f} GB")
+
+    # Print memory status before training
+    print("Memory status before training:")
+    print_gpu_memory()
+
+    ### Train model and save
+    trainer.train()
+    save_finetuned_model(trainer.model,config['training_args']['output_dir'])

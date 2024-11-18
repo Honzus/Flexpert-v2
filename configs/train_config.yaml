@@ -10,8 +10,8 @@ enm_embed_dim: 128
 enm_att_heads: 8
 num_layers: 3
 kernel_size: 5
-mixed_precision: False
-gradient_accumulation_steps: 8
+mixed_precision: True
+gradient_accumulation_steps: 1
 seed: 42
 adaptor_architecture: null
 run_name: null
@@ -29,7 +29,7 @@ training_args:
   greater_is_better: True               # Defines whether higher values of the above metric are better
   learning_rate: 0.0003
   save_safetensors: False
-  save_steps: 528
+  save_steps: 256
   save_total_limit: 3
   logging_strategy: 'epoch'
 
