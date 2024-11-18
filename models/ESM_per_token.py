@@ -100,7 +100,7 @@ class EsmForTokenRegression(EsmPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-def ESM_classification_model(half_precision, class_config):
+def ESM_classification_model(half_precision, class_config, lora_config):
     # Load ESM and tokenizer
     if not half_precision:
         model = EsmModel.from_pretrained("facebook/esm2_t36_3B_UR50D")
@@ -138,7 +138,7 @@ def ESM_classification_model(half_precision, class_config):
         param.requires_grad = False
 
     for (param_name, param) in class_model.named_parameters():
-        if re.fullmatch(config.trainable_param_names, param_name):
+        if re.fullmatch(lora_config.trainable_param_names, param_name):
             param.requires_grad = True
     
     # Print trainable Parameter
