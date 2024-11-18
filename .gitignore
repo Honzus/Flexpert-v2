@@ -4,6 +4,7 @@ results/
 results_debug/
 
 lumi-pyg-lightning-tk_latest.sif
+karolina_cuda_pyg_latest.sif
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
