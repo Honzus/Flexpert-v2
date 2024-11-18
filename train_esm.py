@@ -7,6 +7,12 @@ os.environ['HF_HOME'] = env_config['huggingface']['HF_HOME']
 # Set gpu device
 os.environ["CUDA_VISIBLE_DEVICES"]= env_config['gpus']['cuda_visible_device']
 
+# ### For Karolina trying to run the code, avoiding the accelerate errors ###
+# os.environ["ACCELERATE_DISABLE_RICH"] = "1"
+# # Optionally, you can also disable the version check specifically
+# os.environ["ACCELERATE_SKIP_CUDA_CHECK"] = "1"
+# ###########################################################################
+
 #import dependencies
 import numpy as np
 import torch
@@ -58,6 +64,7 @@ from models.enm_adaptor_heads import (
     ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
     ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 )
+from utils.lora_utils import LoRAConfig
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model on the CATH dataset')
@@ -135,6 +142,8 @@ if __name__=='__main__':
 
     print("Training with the following config: \n", config)
 
+    lora_config = LoRAConfig(config_file='configs/lora_config.yaml')
+
 
     
     ### Initialize wandb
@@ -182,7 +191,7 @@ if __name__=='__main__':
         
     ### Load model
     class_config=ClassConfig(config)
-    model, tokenizer = ESM_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    model, tokenizer = ESM_classification_model(half_precision=config['mixed_precision'], class_config=class_config, lora_config=lora_config)
     
     ### Split data into train, valid, test and preprocess
     train,valid,test = do_topology_split(df, SPLITS_PATH)
@@ -194,17 +203,71 @@ if __name__=='__main__':
     ### For token classification (regression) we need a data collator here to pad correctly
     data_collator = DataCollatorForTokenRegression_esm(tokenizer)
 
-    ### Trainer          
-    trainer = ENMAdaptedTrainer(
-            model,
-            training_args,
-            train_dataset=train_set,
-            eval_dataset=valid_set,
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-            compute_metrics=compute_metrics
-        )
+    ### Instead of using HuggingFace Trainer, create a simple training loop
+    def train_model(model, train_loader, valid_loader, config):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config['training_args']['learning_rate'])
+        
+        for epoch in range(config['epochs']):
+            # Training
+            model.train()
+            train_loss = 0
+            progress_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}')
+            
+            for batch in progress_bar:
+                # Move batch to device
+                batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
+                        for k, v in batch.items()}
+                
+                outputs = model(**batch)
+                loss = outputs.loss
+                
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                
+                train_loss += loss.item()
+                progress_bar.set_postfix({'loss': loss.item()})
+                
+                # Log to wandb
+                wandb.log({"train_loss": loss.item()})
+            
+            # Validation
+            model.eval()
+            valid_loss = 0
+            with torch.no_grad():
+                for batch in tqdm(valid_loader, desc='Validation'):
+                    batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
+                            for k, v in batch.items()}
+                    outputs = model(**batch)
+                    valid_loss += outputs.loss.item()
+            
+            valid_loss /= len(valid_loader)
+            print(f'Epoch {epoch+1}, Valid Loss: {valid_loss:.4f}')
+            wandb.log({"valid_loss": valid_loss})
+            
+            # Save checkpoint
+            if (epoch + 1) % config['training_args']['save_steps'] == 0:
+                save_path = os.path.join(config['training_args']['output_dir'], f'checkpoint-{epoch+1}')
+                os.makedirs(save_path, exist_ok=True)
+                model.save_pretrained(save_path)
+        
+        return model
 
-    ### Train model and save
-    trainer.train()
-    save_finetuned_model(trainer.model,config['training_args']['output_dir'])
+    # Replace the Trainer setup and training with:
+    train_loader = DataLoader(
+        train_set,
+        batch_size=config['batch_size'],
+        shuffle=True,
+        collate_fn=data_collator
+    )
+    valid_loader = DataLoader(
+        valid_set,
+        batch_size=config['batch_size'],
+        shuffle=False,
+        collate_fn=data_collator
+    )
+
+    model = train_model(model, train_loader, valid_loader, config)
+    save_finetuned_model(model, config['training_args']['output_dir'])
