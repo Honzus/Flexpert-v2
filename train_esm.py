@@ -208,6 +208,7 @@ if __name__=='__main__':
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = model.to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=config['training_args']['learning_rate'])
+        loss_fct = torch.nn.MSELoss()
         
         for epoch in range(config['epochs']):
             # Training
@@ -221,7 +222,22 @@ if __name__=='__main__':
                         for k, v in batch.items()}
                 
                 outputs = model(**batch)
-                loss = outputs.loss
+                logits = outputs.logits
+                labels = batch.get("labels")
+                mask = batch.get('attention_mask')
+
+                # Compute loss the same way as in ENMAdaptedTrainer
+                active_loss = mask.view(-1) == 1
+                active_logits = logits.view(-1)
+                active_labels = torch.where(
+                    active_loss, 
+                    labels.view(-1), 
+                    torch.tensor(-100).type_as(labels)
+                )
+                valid_logits = active_logits[active_labels != -100]
+                valid_labels = active_labels[active_labels != -100]
+                
+                loss = loss_fct(valid_labels, valid_logits)
                 
                 loss.backward()
                 optimizer.step()
@@ -230,7 +246,7 @@ if __name__=='__main__':
                 train_loss += loss.item()
                 progress_bar.set_postfix({'loss': loss.item()})
                 
-                # Log to wandb
+                # Log to wandb if you're using it
                 wandb.log({"train_loss": loss.item()})
             
             # Validation
@@ -241,7 +257,23 @@ if __name__=='__main__':
                     batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v 
                             for k, v in batch.items()}
                     outputs = model(**batch)
-                    valid_loss += outputs.loss.item()
+                    logits = outputs.logits
+                    labels = batch.get("labels")
+                    mask = batch.get('attention_mask')
+
+                    # Same loss computation for validation
+                    active_loss = mask.view(-1) == 1
+                    active_logits = logits.view(-1)
+                    active_labels = torch.where(
+                        active_loss, 
+                        labels.view(-1), 
+                        torch.tensor(-100).type_as(labels)
+                    )
+                    valid_logits = active_logits[active_labels != -100]
+                    valid_labels = active_labels[active_labels != -100]
+                    
+                    loss = loss_fct(valid_labels, valid_logits)
+                    valid_loss += loss.item()
             
             valid_loss /= len(valid_loader)
             print(f'Epoch {epoch+1}, Valid Loss: {valid_loss:.4f}')
