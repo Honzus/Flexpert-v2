@@ -9,6 +9,7 @@ class LoRAConfig:
         # Load the YAML configuration file
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
+        # self.config = config
 
         # Set class attributes based on the loaded YAML config
         for key, value in config.items():
