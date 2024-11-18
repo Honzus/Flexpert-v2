@@ -1,6 +1,6 @@
 huggingface:
-  HF_HOME: /scratch/project_465001401/Flexpert-nD/HF_cache
+  HF_HOME: /scratch/project/open-32-14/koubape9/Flexpert-nD/HF_cache
 wandb:
-  project: 'Flexpert-nD'
+  project: 'Flexpert-nD-Karolina'
 gpus:
   cuda_visible_device: '0'
