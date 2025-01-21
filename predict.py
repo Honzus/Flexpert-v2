@@ -7,6 +7,7 @@ import os
 import yaml
 import torch
 from Bio import SeqIO
+import json
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -45,9 +46,26 @@ if __name__ == "__main__":
         sequences = [sequence]
         names = [_name+"_"+_chain]
     elif suffix == ".jsonl":
-        raise NotImplementedError("JSONL file is not supported yet")
+        sequences = []
+        names = []
+        backbones = []
+        for line in open(args.input_file, 'r'):
+            _dict = json.loads(line)
+            import pdb; pdb.set_trace()
+            backbones.append(_dict['coords'])
+            sequences.append(_dict['seq'])
+            names.append(_dict['name'])
     else:
         raise ValueError("Input file must be a fasta, pdb or jsonl file")
+
+    # if args.modality == '3D':
+    #     enm_vals = []
+    #     sequences = []
+    #     from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
+    #     for backbone in backbones:
+    #         fluctuations, sequence = get_fluctuation_for_json_dict(backbone, enm_type = config['inference_args']['enm_type'])
+    #         enm_vals.append(fluctuations)
+    #         sequences.append(sequence)
 
     #load model Seq / 3D and the tokenizer
 
@@ -92,12 +110,13 @@ if __name__ == "__main__":
     # Use the data collator to process the input
     data_collator = DataCollatorForTokenRegression(tokenizer)
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
-
+    batch.to(model.device)
+    import pdb; pdb.set_trace()
     # Predict
     with torch.no_grad():
         outputs = model(**batch)
         predictions = outputs.logits[:,:,0]
-
+    import pdb; pdb.set_trace()
     #TODO:  handle the 'enm_vals' key in the collate function
     #TODO:  input for datasets / test split
     #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
