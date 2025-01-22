@@ -60,8 +60,8 @@ class DataCollatorForTokenRegression(DataCollatorMixin):
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
-
-        batch['enm_vals'] = torch.nn.utils.rnn.pad_sequence([torch.tensor(feature['enm_vals'], dtype=torch.float) for feature in features], batch_first=True, padding_value=0.0)
+        if 'enm_vals' in features[0]:
+            batch['enm_vals'] = torch.nn.utils.rnn.pad_sequence([torch.tensor(feature['enm_vals'], dtype=torch.float) for feature in features], batch_first=True, padding_value=0.0)
         #batch = self.tokenizer.pad(no_labels_features,padding=self.padding,max_length=self.max_length,pad_to_multiple_of=self.pad_to_multiple_of,return_tensors="pt")
         if labels is None:
             return batch
