@@ -17,7 +17,8 @@ if __name__ == "__main__":
 
     args.modality = args.modality.upper()
     filename, suffix = os.path.splitext(args.input_file)
-        
+    output_filename = filename + '-predictions.txt'
+
     if args.modality not in ["SEQ", "3D"]:
         raise ValueError("Modality must be either Seq or 3D")
 
@@ -111,12 +112,22 @@ if __name__ == "__main__":
     data_collator = DataCollatorForTokenRegression(tokenizer)
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
     batch.to(model.device)
-    import pdb; pdb.set_trace()
     # Predict
     with torch.no_grad():
         outputs = model(**batch)
         predictions = outputs.logits[:,:,0]
-    import pdb; pdb.set_trace()
+        # subselect the predictions using the attention mask
+        
+    with open(output_filename, 'w') as f:
+        print("Saving predictions to {}.".format(output_filename))
+        for prediction, mask, name, sequence in zip(predictions, batch['attention_mask'], names, sequences):
+            prediction = prediction[mask.bool()]
+            assert len(prediction) == len(sequence)+1
+            f.write('>' + name + '\n')
+            f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
+
+
+    
     #TODO:  handle the 'enm_vals' key in the collate function
     #TODO:  input for datasets / test split
     #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
