@@ -13,6 +13,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", type=str, required=True, help="Input file")
     parser.add_argument("--modality", type=str, required=True, help="Indicate 'Seq' or '3D' to use Flexpert-Seq or Flexpert-3D?")
+    parser.add_argument("--splits_file", type=str, required=False, help="Path to the file defining the splits, in case that input_file is a dataset which should be subsampled.")
+    parser.add_argument("--split", type=str, required=False, help="Specify test/train/val to subselect the respective split. If specified, the splits file needs to be provided as well.")
     args = parser.parse_args()
 
     args.modality = args.modality.upper()
@@ -21,6 +23,24 @@ if __name__ == "__main__":
 
     if args.modality not in ["SEQ", "3D"]:
         raise ValueError("Modality must be either Seq or 3D")
+    if args.splits_file is not None and args.split is None:
+        raise ValueError("If splits_file is provided, split must be specified.")
+    if args.split is not None and args.splits_file is None:
+        raise ValueError("If split is specified, splits_file must be provided.")
+    if args.split is not None and args.split not in ["test", "train", "val", "validation"]:
+        raise ValueError("Split must be either 'test', 'train', 'val' or 'validation'")
+
+    if args.splits_file is not None:
+        with open(args.splits_file, 'r') as f:
+            splits = json.load(f)
+        if 'val' in splits.keys() and args.split == 'validation':
+            args.split = 'val'
+        elif 'validation' in splits.keys() and args.split == 'val':
+            args.split = 'validation'
+        
+        datapoint_for_eval = splits[args.split]
+    else:
+        datapoint_for_eval = 'all'
 
     if suffix == ".fasta":
         if args.modality == "3D":
@@ -31,9 +51,10 @@ if __name__ == "__main__":
         backbones = []
         # Load FASTA file using Biopython
         for record in SeqIO.parse(args.input_file, "fasta"):
-            names.append(record.name)
-            sequences.append(str(record.seq))
-            backbones.append(None)
+            if datapoint_for_eval == 'all' or record.name in datapoint_for_eval:
+                names.append(record.name)
+                sequences.append(str(record.seq))
+                backbones.append(None)
 
     elif suffix == ".pdb":
         parsed_name = filename.split('/')[-1].split('_')
@@ -52,22 +73,12 @@ if __name__ == "__main__":
         backbones = []
         for line in open(args.input_file, 'r'):
             _dict = json.loads(line)
-            backbones.append(_dict['coords'])
-            sequences.append(_dict['seq'])
-            names.append(_dict['name'])
+            if datapoint_for_eval == 'all' or _dict['name'] in datapoint_for_eval:
+                backbones.append(_dict['coords'])
+                sequences.append(_dict['seq'])
+                names.append(_dict['name'])
     else:
         raise ValueError("Input file must be a fasta, pdb or jsonl file")
-
-    # if args.modality == '3D':
-    #     enm_vals = []
-    #     sequences = []
-    #     from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
-    #     for backbone in backbones:
-    #         fluctuations, sequence = get_fluctuation_for_json_dict(backbone, enm_type = config['inference_args']['enm_type'])
-    #         enm_vals.append(fluctuations)
-    #         sequences.append(sequence)
-
-    #load model Seq / 3D and the tokenizer
 
     ### Set environment variables
     env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
