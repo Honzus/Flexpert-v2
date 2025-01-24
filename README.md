@@ -93,8 +93,14 @@ python3 train.py --run_name testrun-3D --adaptor_architecture conv
 The code for the LoRA fine-tuning of protein language models is derived from [this repo](https://github.com/agemagician/ProtTrans/tree/master/Fine-Tuning) accompanying the [paper](https://www.nature.com/articles/s41467-024-51844-2) "Fine-tuning protein language models boosts predictions across diverse tasks" by Schmirler et al.
 
 ## Inference with Flexpert-Seq and Flexpert-3D
+Example predictions of flexibility:
+```
+#For Flexpert-Seq:
+python3 predict.py --modality SEQ --input_file data/example_sequences.fasta 
 
-TODO
+#For Flexpert-3D:
+python3 predict.py --modality 3D --input_file data/custom_dataset/chain_set.jsonl
+```
 
 
 ## Analysis of the flexibility metrics
