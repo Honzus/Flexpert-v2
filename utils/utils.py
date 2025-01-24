@@ -12,6 +12,7 @@ from typing import Union, Optional
 from datasets import Dataset
 import numpy as np
 import random
+from tqdm import tqdm
 
 @dataclass
 class DataCollatorForTokenRegression(DataCollatorMixin):
@@ -349,3 +350,24 @@ def load_esm_model_regression(checkpoint, half_precision, full = False, deepspee
                 param.requires_grad = True 
     
     return model, tokenizer
+
+
+def split_batch(batch, sub_batch_size):
+    """Splits a batch dictionary into smaller sub-batches."""
+    batch_size = batch["input_ids"].size(0)
+    for i in range(0, batch_size, sub_batch_size):
+        yield {key: tensor[i:i + sub_batch_size] for key, tensor in batch.items()}
+
+def process_batch_in_chunks(model, batch, sub_batch_size):
+    outputs = []
+    for sub_batch in tqdm(split_batch(batch, sub_batch_size)):
+        with torch.no_grad():  # To save memory
+            output = model(**sub_batch)
+            outputs.append(output)
+    return outputs
+
+def process_in_batches_and_combine(model, batch, sub_batch_size):
+    outputs = process_batch_in_chunks(model, batch, sub_batch_size)
+    # Example: combine logits if that's what you need
+    logits = torch.cat([out.logits for out in outputs], dim=0)
+    return logits

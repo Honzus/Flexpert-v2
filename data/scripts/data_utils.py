@@ -231,3 +231,42 @@ def align_pdb_dict_formats(pdb_dict,chain):
     new_dict['name'] = pdb_dict['name'] +"_"+chain
     new_dict['CATH'] = ["1.10.150", "3.30.160", "1.10.443"]
     return new_dict
+
+
+def modify_bfactor_biotite(input_file, output_file, flex_prediction):
+    """
+    Reads a PDB file, modifies the B-factor column, and writes the updated file using Biotite.
+
+    :param input_file: Path to the input PDB file
+    :param output_file: Path to save the modified PDB file
+    :param flex_prediction: New B-factor value to set (can be a single value or array)
+    """
+    # Read the PDB file into an AtomArray
+    import biotite.structure as struc
+    import biotite.structure.io as strucio
+    structure = strucio.load_structure(input_file)
+
+    new_bfactor_column = []
+
+    last_res_id = -1000
+    pred_idx = -1
+    
+    flex_prediction = flex_prediction.cpu().numpy()
+
+    for res_id in structure.res_id:
+        if res_id != last_res_id:
+            new_bfactor_column.append(flex_prediction[0,pred_idx+1])
+            last_res_id = res_id
+            pred_idx += 1
+        else:
+            new_bfactor_column.append(flex_prediction[0,pred_idx])
+    
+    new_bfactors = np.array(new_bfactor_column)
+
+    if "b_factor" not in structure.get_annotation_categories():
+        structure.set_annotation("b_factor", new_bfactors)
+    else:  # Array of values
+        structure.b_factor[:] = new_bfactors
+    
+    # Save the modified structure to a new PDB file
+    strucio.save_structure(output_file, structure)

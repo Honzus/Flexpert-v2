@@ -1,5 +1,5 @@
 from data.scripts.data_utils import parse_PDB
-from utils.utils import ClassConfig, DataCollatorForTokenRegression
+from utils.utils import ClassConfig, DataCollatorForTokenRegression, process_in_batches_and_combine
 from models.T5_encoder_per_token import PT5_classification_model
 from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
 import argparse
@@ -19,7 +19,6 @@ if __name__ == "__main__":
 
     args.modality = args.modality.upper()
     filename, suffix = os.path.splitext(args.input_file)
-    output_filename = filename.split('/')[-1] + '-predictions.txt'
 
     if args.modality not in ["SEQ", "3D"]:
         raise ValueError("Modality must be either Seq or 3D")
@@ -51,8 +50,14 @@ if __name__ == "__main__":
         backbones = []
         # Load FASTA file using Biopython
         for record in SeqIO.parse(args.input_file, "fasta"):
-            if datapoint_for_eval == 'all' or record.name in datapoint_for_eval:
-                names.append(record.name)
+            if '_' in record.name:
+                dot_separated_name = '.'.join(record.name.split('_'))
+            elif '.' in record.name:
+                dot_separated_name = record.name
+            else:
+                raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
+            if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
+                names.append(dot_separated_name)
                 sequences.append(str(record.seq))
                 backbones.append(None)
 
@@ -66,17 +71,25 @@ if __name__ == "__main__":
         backbone, sequence = parsed_pdb['coords_chain_{}'.format(_chain)], parsed_pdb['seq_chain_{}'.format(_chain)]
         backbones = [backbone]
         sequences = [sequence]
-        names = [_name+"_"+_chain]
+        names = [_name+"."+_chain]#[_name+"_"+_chain]
     elif suffix == ".jsonl":
         sequences = []
         names = []
         backbones = []
         for line in open(args.input_file, 'r'):
             _dict = json.loads(line)
-            if datapoint_for_eval == 'all' or _dict['name'] in datapoint_for_eval:
+
+            if '_' in _dict['name']:
+                dot_separated_name = '.'.join(_dict['name'].split('_'))
+            elif '.' in record.name:
+                dot_separated_name = _dict['name']
+            else:
+                raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
+            # import pdb; pdb.set_trace()
+            if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
                 backbones.append(_dict['coords'])
                 sequences.append(_dict['seq'])
-                names.append(_dict['name'])
+                names.append(dot_separated_name)
     else:
         raise ValueError("Input file must be a fasta, pdb or jsonl file")
 
@@ -122,13 +135,15 @@ if __name__ == "__main__":
     data_collator = DataCollatorForTokenRegression(tokenizer)
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
     batch.to(model.device)
+    
     # Predict
-    import pdb; pdb.set_trace()
     with torch.no_grad():
-        outputs = model(**batch)
-        predictions = outputs.logits[:,:,0]
+        output_logits = process_in_batches_and_combine(model, batch, config['inference_args']['batch_size'])
+        predictions = output_logits[:,:,0]
         # subselect the predictions using the attention mask
-        
+    
+    output_filename = config['inference_args']['prediction_output_dir'].format(filename.split('/')[-1], args.modality, 'all' if not args.split else args.split)
+
     with open(output_filename, 'w') as f:
         print("Saving predictions to {}.".format(output_filename))
         for prediction, mask, name, sequence in zip(predictions, batch['attention_mask'], names, sequences):
@@ -136,8 +151,14 @@ if __name__ == "__main__":
             assert len(prediction) == len(sequence)+1
             f.write('>' + name + '\n')
             f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
+    
+    if suffix == ".pdb":
+        pdb_output_filename = output_filename.replace('.txt', '.pdb')
+        with open(pdb_output_filename, 'w') as f:
+            print("Saving prediction to {}.".format(pdb_output_filename))
+            from data.scripts.data_utils import modify_bfactor_biotite
+            modify_bfactor_biotite(args.input_file, pdb_output_filename, predictions)
 
 
-    #TODO:  input for test split
     #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
     #       for dataset output the dataset with the predicted values - compatible with the flexibility scripts)
