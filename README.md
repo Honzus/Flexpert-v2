@@ -102,7 +102,6 @@ python3 predict.py --modality SEQ --input_file data/example_sequences.fasta
 python3 predict.py --modality 3D --input_file data/custom_dataset/chain_set.jsonl
 ```
 
-
 ## Analysis of the flexibility metrics
 
 TODO
