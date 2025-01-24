@@ -93,13 +93,24 @@ python3 train.py --run_name testrun-3D --adaptor_architecture conv
 The code for the LoRA fine-tuning of protein language models is derived from [this repo](https://github.com/agemagician/ProtTrans/tree/master/Fine-Tuning) accompanying the [paper](https://www.nature.com/articles/s41467-024-51844-2) "Fine-tuning protein language models boosts predictions across diverse tasks" by Schmirler et al.
 
 ## Inference with Flexpert-Seq and Flexpert-3D
-Example predictions of flexibility:
+Example predictions of flexibility, input is provided by fasta, jsonl or pdb file. For fasta and jsonl the output is a txt file with the predicted flexibility profiles. For PDB input the output is a new PDB with the predicted flexibility written inside the B-factor column:
+
 ```
-#For Flexpert-Seq:
+#For Flexpert-Seq (using fasta on the input):
 python3 predict.py --modality SEQ --input_file data/example_sequences.fasta 
 
-#For Flexpert-3D:
+#For Flexpert-3D (using preprocessed jsonl file on the input containing sequences and structures):
 python3 predict.py --modality 3D --input_file data/custom_dataset/chain_set.jsonl
+
+#For Flexpert-3D / Flexpert-Seq (using PDB on the input):
+python3 predict.py --modality 3D --input_file data/PDBs/1ah7_A.pdb
+python3 predict.py --modality SEQ --input_file data/PDBs/1ah7_A.pdb
+```
+
+Example prediction for a particular split of a dataset, which reads whole dataset and the train/val/test splits and performs prediction for the test split:
+
+```
+python3 predict.py --modality SEQ --input_file data/atlas_sequences.fasta --splits_file data/atlas_splits.json --split test
 ```
 
 ## Analysis of the flexibility metrics
