@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     args.modality = args.modality.upper()
     filename, suffix = os.path.splitext(args.input_file)
-    output_filename = filename + '-predictions.txt'
+    output_filename = filename.split('/')[-1] + '-predictions.txt'
 
     if args.modality not in ["SEQ", "3D"]:
         raise ValueError("Modality must be either Seq or 3D")
@@ -52,7 +52,6 @@ if __name__ == "__main__":
         backbones = []
         for line in open(args.input_file, 'r'):
             _dict = json.loads(line)
-            import pdb; pdb.set_trace()
             backbones.append(_dict['coords'])
             sequences.append(_dict['seq'])
             names.append(_dict['name'])
@@ -113,6 +112,7 @@ if __name__ == "__main__":
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
     batch.to(model.device)
     # Predict
+    import pdb; pdb.set_trace()
     with torch.no_grad():
         outputs = model(**batch)
         predictions = outputs.logits[:,:,0]
@@ -127,8 +127,6 @@ if __name__ == "__main__":
             f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
 
 
-    
-    #TODO:  handle the 'enm_vals' key in the collate function
-    #TODO:  input for datasets / test split
+    #TODO:  input for test split
     #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
     #       for dataset output the dataset with the predicted values - compatible with the flexibility scripts)
