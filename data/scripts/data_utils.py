@@ -233,7 +233,7 @@ def align_pdb_dict_formats(pdb_dict,chain):
     return new_dict
 
 
-def modify_bfactor_biotite(input_file, output_file, flex_prediction):
+def modify_bfactor_biotite(input_file, chain_id, output_file, flex_prediction):
     """
     Reads a PDB file, modifies the B-factor column, and writes the updated file using Biotite.
 
@@ -245,14 +245,16 @@ def modify_bfactor_biotite(input_file, output_file, flex_prediction):
     import biotite.structure as struc
     import biotite.structure.io as strucio
     structure = strucio.load_structure(input_file)
-
+    structure = structure[structure.chain_id == chain_id]
+    structure = structure[~structure.hetero]
+    
     new_bfactor_column = []
 
     last_res_id = -1000
     pred_idx = -1
     
     flex_prediction = flex_prediction.cpu().numpy()
-
+    
     for res_id in structure.res_id:
         if res_id != last_res_id:
             new_bfactor_column.append(flex_prediction[0,pred_idx+1])

@@ -15,11 +15,12 @@ if __name__ == "__main__":
     parser.add_argument("--modality", type=str, required=True, help="Indicate 'Seq' or '3D' to use Flexpert-Seq or Flexpert-3D?")
     parser.add_argument("--splits_file", type=str, required=False, help="Path to the file defining the splits, in case that input_file is a dataset which should be subsampled.")
     parser.add_argument("--split", type=str, required=False, help="Specify test/train/val to subselect the respective split. If specified, the splits file needs to be provided as well.")
+    parser.add_argument("--output_enm", action='store_true', help="If true, the ENM values will be outputted in separate file(s).")
     args = parser.parse_args()
 
     args.modality = args.modality.upper()
     filename, suffix = os.path.splitext(args.input_file)
-
+    
     if args.modality not in ["SEQ", "3D"]:
         raise ValueError("Modality must be either Seq or 3D")
     if args.splits_file is not None and args.split is None:
@@ -28,6 +29,8 @@ if __name__ == "__main__":
         raise ValueError("If split is specified, splits_file must be provided.")
     if args.split is not None and args.split not in ["test", "train", "val", "validation"]:
         raise ValueError("Split must be either 'test', 'train', 'val' or 'validation'")
+    if args.output_enm and (args.modality not in ["3D"]):
+        raise ValueError("Output ENM is only supported for 3D modality")
 
     if args.splits_file is not None:
         with open(args.splits_file, 'r') as f:
@@ -85,7 +88,7 @@ if __name__ == "__main__":
                 dot_separated_name = _dict['name']
             else:
                 raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
-            # import pdb; pdb.set_trace()
+
             if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
                 backbones.append(_dict['coords'])
                 sequences.append(_dict['seq'])
@@ -139,7 +142,7 @@ if __name__ == "__main__":
     # Predict
     with torch.no_grad():
         output_logits = process_in_batches_and_combine(model, batch, config['inference_args']['batch_size'])
-        predictions = output_logits[:,:,0]
+        predictions = output_logits[:,:,0] #includes the prediction for the added token
         # subselect the predictions using the attention mask
     
     output_filename = config['inference_args']['prediction_output_dir'].format(filename.split('/')[-1], args.modality, 'all' if not args.split else args.split)
@@ -157,8 +160,21 @@ if __name__ == "__main__":
         with open(pdb_output_filename, 'w') as f:
             print("Saving prediction to {}.".format(pdb_output_filename))
             from data.scripts.data_utils import modify_bfactor_biotite
-            modify_bfactor_biotite(args.input_file, pdb_output_filename, predictions)
+            chain_id = parsed_name[1]
+            modify_bfactor_biotite(args.input_file, chain_id, pdb_output_filename, predictions[:,:-1]) #writing the prediction without the last token
 
-
-    #TODO:  output the predictions (for a PDB file output the PDB file with altered B-factors, for a fasta file output the fasta file with the predicted values, 
-    #       for dataset output the dataset with the predicted values - compatible with the flexibility scripts)
+    if args.output_enm:
+        enm_txt_output_filename = output_filename.replace('.txt', '_enm.txt')
+        with open(enm_txt_output_filename, 'w') as f:
+            print("Saving ENM predictions to {}.".format(enm_txt_output_filename))
+            for enm_prediction, name, sequence in zip(batch['enm_vals'], names, sequences):
+                f.write('>' + name + '\n')
+                f.write(', '.join([str(p) for p in enm_prediction.tolist()[:-1]]) + '\n')
+    
+        if suffix == ".pdb":
+            enm_pdb_output_filename = enm_txt_output_filename.replace('.txt', '.pdb')
+            with open(enm_pdb_output_filename, 'w') as f:
+                print("Saving ENM prediction to {}.".format(enm_pdb_output_filename))
+                from data.scripts.data_utils import modify_bfactor_biotite
+                chain_id = parsed_name[1]
+                modify_bfactor_biotite(args.input_file, chain_id, enm_pdb_output_filename, batch['enm_vals'][:,:-1]) #writing the prediction without the last token
