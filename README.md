@@ -105,6 +105,8 @@ Example predictions of flexibility, input is provided by fasta, jsonl, pdb file 
 
 - By specifying the flags `--splits_file` and `--split` the prediction is performed for a particular split of the dataset (with the dataset being provided as an input_file).
 
+- By specifying the `--output_fasta` flag, the sequences used for the prediction are outputted in a fasta file. This can be useful e.g. when working with a list of PDB files as input, when there was no fasta file provided.
+
 ```
 #For Flexpert-Seq (using fasta on the input):
 python3 predict.py --modality SEQ --input_file data/example_sequences.fasta 

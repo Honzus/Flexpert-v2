@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--splits_file", type=str, required=False, help="Path to the file defining the splits, in case that input_file is a dataset which should be subsampled.")
     parser.add_argument("--split", type=str, required=False, help="Specify test/train/val to subselect the respective split. If specified, the splits file needs to be provided as well.")
     parser.add_argument("--output_enm", action='store_true', help="If true, the ENM values will be outputted in separate file(s).")
+    parser.add_argument("--output_fasta", action='store_true', help="If true, the sequences used for the prediction will be outputted in a fasta file (can be relevant when working with input list of PDB files).")
     parser.add_argument("--output_name", type=str, required=False, help="Name of the output file.")
     args = parser.parse_args()
 
@@ -219,3 +220,11 @@ if __name__ == "__main__":
                 chain_id = name.split('.')[1]
                 _enm_vals = enm_vals_single[:-1].reshape(1,-1)
                 modify_bfactor_biotite(pdb_file, chain_id, _outname, _enm_vals) #writing the prediction without the last token
+    
+    if args.output_fasta:
+        _outname = output_filename.with_name(output_filename.stem + '_fasta.fasta')
+        with open(_outname, 'w') as f:
+            print("Saving fasta to {}.".format(_outname))
+            for sequence in sequences:
+                f.write('>' + name + '\n')
+                f.write(sequence + '\n')
