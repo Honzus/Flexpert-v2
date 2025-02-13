@@ -39,4 +39,4 @@ inference_args:
   3d_model_path: ./models/weights/flexpert_3d_weights.bin
   enm_type: 'ANM'
   batch_size: 4
-  prediction_output_dir: 'prediction_results/{}-{}-{}.txt'
+  prediction_output_dir: 'prediction_results/{}-{}-{}-predictions.txt'
