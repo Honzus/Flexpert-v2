@@ -225,6 +225,6 @@ if __name__ == "__main__":
         _outname = output_filename.with_name(output_filename.stem + '_fasta.fasta')
         with open(_outname, 'w') as f:
             print("Saving fasta to {}.".format(_outname))
-            for sequence in sequences:
+            for name, sequence in zip(names, sequences):
                 f.write('>' + name + '\n')
                 f.write(sequence + '\n')
