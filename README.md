@@ -93,7 +93,17 @@ python3 train.py --run_name testrun-3D --adaptor_architecture conv
 The code for the LoRA fine-tuning of protein language models is derived from [this repo](https://github.com/agemagician/ProtTrans/tree/master/Fine-Tuning) accompanying the [paper](https://www.nature.com/articles/s41467-024-51844-2) "Fine-tuning protein language models boosts predictions across diverse tasks" by Schmirler et al.
 
 ## Inference with Flexpert-Seq and Flexpert-3D
-Example predictions of flexibility, input is provided by fasta, jsonl or pdb file. For fasta and jsonl the output is a txt file with the predicted flexibility profiles. For PDB input the output is a new PDB with the predicted flexibility written inside the B-factor column:
+Example predictions of flexibility, input is provided by fasta, jsonl, pdb file or a list of paths to PDB files. 
+
+- For fasta and jsonl the output is a txt file with the predicted flexibility profiles. 
+
+- For PDB input the output is a new PDB with the predicted flexibility written inside the B-factor column. 
+
+- For a list of PDB files the outputs are multiple PDB files with the predicted flexibility written inside the B-factor column. 
+
+- When provided the `--output_enm` flag in case of Flexpert-3D, the variant of the outputs with ENM predicted flexibilities is also produced.
+
+- By specifying the flags `--splits_file` and `--split` the prediction is performed for a particular split of the dataset (with the dataset being provided as an input_file).
 
 ```
 #For Flexpert-Seq (using fasta on the input):
@@ -112,6 +122,16 @@ Example prediction for a particular split of a dataset, which reads whole datase
 ```
 python3 predict.py --modality SEQ --input_file data/atlas_sequences.fasta --splits_file data/atlas_splits.json --split test
 ```
+
+Example prediction for a single PDB file and for a list of PDB files with Flexpert-3D, asking to also obtain a separate output with ENM predicted flexibilities, customizing the name of the output files:
+
+```
+python3 predict.py --modality 3D --input_file data/PDBs/1ah7_A.pdb --output_enm --output_name 1ah7_test
+
+python3 predict.py --modality 3D --input_file data/PDBs/paths.pdb_list --output_enm --output_name test_output
+```
+
+Tip: when using terminal outside of the singularity container, you can generate a textfile with all the paths to the PDB files in `data/PDBs/` using something like: `realpath data/PDBs/*.pdb > data/PDBs/paths.pdb_list`.
 
 ## Analysis of the flexibility metrics
 
