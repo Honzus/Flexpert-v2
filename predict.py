@@ -6,8 +6,13 @@ import argparse
 import os
 import yaml
 import torch
+from pathlib import Path
 from Bio import SeqIO
 import json
+import warnings
+from datetime import datetime
+
+from data.scripts.data_utils import modify_bfactor_biotite
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -16,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--splits_file", type=str, required=False, help="Path to the file defining the splits, in case that input_file is a dataset which should be subsampled.")
     parser.add_argument("--split", type=str, required=False, help="Specify test/train/val to subselect the respective split. If specified, the splits file needs to be provided as well.")
     parser.add_argument("--output_enm", action='store_true', help="If true, the ENM values will be outputted in separate file(s).")
+    parser.add_argument("--output_name", type=str, required=False, help="Name of the output file.")
     args = parser.parse_args()
 
     args.modality = args.modality.upper()
@@ -31,6 +37,11 @@ if __name__ == "__main__":
         raise ValueError("Split must be either 'test', 'train', 'val' or 'validation'")
     if args.output_enm and (args.modality not in ["3D"]):
         raise ValueError("Output ENM is only supported for 3D modality")
+    if not args.output_name:
+        default_name = 'untitled_{}'.format(datetime.now().strftime('%Y%m%d_%H%M%S'))
+        args.output_name = default_name
+        warnings.warn("Output name is not provided, using default name: {}".format(default_name))
+        
 
     if args.splits_file is not None:
         with open(args.splits_file, 'r') as f:
@@ -44,13 +55,31 @@ if __name__ == "__main__":
     else:
         datapoint_for_eval = 'all'
 
+    sequences = []
+    names = []
+    backbones = []
+    pdb_files = []
+
+    def process_pdb_file(pdb_file, backbones, sequences, names):
+        parsed_name = os.path.splitext(os.path.basename(pdb_file))[0].split('_')
+        if len(parsed_name[0]) != 4 or len(parsed_name[1]) != 1 or not parsed_name[1].isalpha():
+            raise ValueError("PDB file name is expected to be in the format of 'name_chain.pdb', e.g.: 1BUI_C.pdb")
+        _name = parsed_name[0]
+        _chain = parsed_name[1]
+        parsed_pdb = parse_PDB(pdb_file, name=_name, input_chain_list=[_chain])[0]
+        backbone, sequence = parsed_pdb['coords_chain_{}'.format(_chain)], parsed_pdb['seq_chain_{}'.format(_chain)]
+        if len(sequence) > 1023:
+            print("Sequence length is greater than 1023, skipping {}".format(_name + "." + _chain))
+        else:
+            backbones.append(backbone)
+            sequences.append(sequence)
+            names.append(_name + "." + _chain)
+        return backbones, sequences, names
+
     if suffix == ".fasta":
         if args.modality == "3D":
             raise ValueError("Flexpert-3D needs the structure, fasta is not enough")
 
-        sequences = []
-        names = []
-        backbones = []
         # Load FASTA file using Biopython
         for record in SeqIO.parse(args.input_file, "fasta"):
             if '_' in record.name:
@@ -65,26 +94,16 @@ if __name__ == "__main__":
                 backbones.append(None)
 
     elif suffix == ".pdb":
-        parsed_name = filename.split('/')[-1].split('_')
-        if len(parsed_name[0]) != 4 or len(parsed_name[1]) != 1 or not parsed_name[1].isalpha():
-            raise ValueError("PDB file name is expected to be in the format of 'name_chain.pdb', e.g.: 1BUI_C.pdb")
-        _name= parsed_name[0]
-        _chain = parsed_name[1]
-        parsed_pdb = parse_PDB(args.input_file,name=_name, input_chain_list=[_chain])[0]
-        backbone, sequence = parsed_pdb['coords_chain_{}'.format(_chain)], parsed_pdb['seq_chain_{}'.format(_chain)]
-        backbones = [backbone]
-        sequences = [sequence]
-        names = [_name+"."+_chain]#[_name+"_"+_chain]
+        backbones, sequences, names = process_pdb_file(args.input_file, backbones, sequences, names)
+        pdb_files.append(args.input_file)
+
     elif suffix == ".jsonl":
-        sequences = []
-        names = []
-        backbones = []
         for line in open(args.input_file, 'r'):
             _dict = json.loads(line)
 
             if '_' in _dict['name']:
                 dot_separated_name = '.'.join(_dict['name'].split('_'))
-            elif '.' in record.name:
+            elif '.' in _dict['name']:
                 dot_separated_name = _dict['name']
             else:
                 raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
@@ -93,8 +112,15 @@ if __name__ == "__main__":
                 backbones.append(_dict['coords'])
                 sequences.append(_dict['seq'])
                 names.append(dot_separated_name)
+
+    elif suffix == ".pdb_list":
+        with open(args.input_file, 'r') as f:
+            pdb_files = f.read().splitlines()
+        for pdb_file in pdb_files:
+            backbones, sequences, names = process_pdb_file(pdb_file, backbones, sequences, names)
+
     else:
-        raise ValueError("Input file must be a fasta, pdb or jsonl file")
+        raise ValueError("Input file must be a fasta, pdb, jsonl file or a pdb list file")
 
     ### Set environment variables
     env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
@@ -125,7 +151,10 @@ if __name__ == "__main__":
             flucts = flucts.tolist()
             flucts.append(0.0) #To match the special token for the sequence
             flucts = torch.tensor(flucts).to(config['inference_args']['device'])
-        
+
+        #Ensure that the missing residues in the sequence are not represented as '-' but as 'X'
+        sequence = sequence.replace('-', 'X') #due to the tokenizer vocabulary
+
         tokenizer_out = tokenizer(' '.join(sequence), add_special_tokens=True, return_tensors='pt')
         tokenized_seq, attention_mask = tokenizer_out['input_ids'].to(config['inference_args']['device']), tokenizer_out['attention_mask'].to(config['inference_args']['device'])
         
@@ -136,45 +165,57 @@ if __name__ == "__main__":
 
     # Use the data collator to process the input
     data_collator = DataCollatorForTokenRegression(tokenizer)
+
     batch = data_collator(data_to_collate)  # Wrap in list since collator expects batch
     batch.to(model.device)
-    
+    for key in batch.keys():
+        print("___________-", key, "-___________")
+        for b in batch[key]:
+            if key == 'attention_mask':
+                print(b.sum())
+            else:
+                print(b.shape)
+
     # Predict
     with torch.no_grad():
         output_logits = process_in_batches_and_combine(model, batch, config['inference_args']['batch_size'])
         predictions = output_logits[:,:,0] #includes the prediction for the added token
         # subselect the predictions using the attention mask
     
-    output_filename = config['inference_args']['prediction_output_dir'].format(filename.split('/')[-1], args.modality, 'all' if not args.split else args.split)
+    output_filename = Path(config['inference_args']['prediction_output_dir'].format(args.output_name, args.modality, 'all' if not args.split else args.split))
 
-    with open(output_filename, 'w') as f:
+    #Write the predictions to files
+    with open(output_filename.with_suffix('.txt'), 'w') as f:
         print("Saving predictions to {}.".format(output_filename))
         for prediction, mask, name, sequence in zip(predictions, batch['attention_mask'], names, sequences):
             prediction = prediction[mask.bool()]
-            assert len(prediction) == len(sequence)+1
+            if len(prediction) != len(sequence)+1:
+                print("Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1))
+
+            assert len(prediction) == len(sequence)+1, "Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1)
             f.write('>' + name + '\n')
             f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
     
-    if suffix == ".pdb":
-        pdb_output_filename = output_filename.replace('.txt', '.pdb')
-        with open(pdb_output_filename, 'w') as f:
-            print("Saving prediction to {}.".format(pdb_output_filename))
-            from data.scripts.data_utils import modify_bfactor_biotite
-            chain_id = parsed_name[1]
-            modify_bfactor_biotite(args.input_file, chain_id, pdb_output_filename, predictions[:,:-1]) #writing the prediction without the last token
+    if suffix == ".pdb" or suffix == ".pdb_list":
+        for name, pdb_file, prediction in zip(names, pdb_files, predictions):
+            chain_id = name.split('.')[1]
+            _prediction = prediction[:-1].reshape(1,-1)
+            _outname = output_filename.with_name(output_filename.stem + '_{}.pdb'.format(name.replace('.', '_')))
+            print("Saving prediction to {}.".format(_outname))
+            modify_bfactor_biotite(pdb_file, chain_id, _outname, _prediction) #writing the prediction without the last token
 
     if args.output_enm:
-        enm_txt_output_filename = output_filename.replace('.txt', '_enm.txt')
-        with open(enm_txt_output_filename, 'w') as f:
-            print("Saving ENM predictions to {}.".format(enm_txt_output_filename))
-            for enm_prediction, name, sequence in zip(batch['enm_vals'], names, sequences):
+        _outname = output_filename.with_name(output_filename.stem + '_enm.txt')
+        with open(_outname, 'w') as f:
+            print("Saving ENM predictions to {}.".format(_outname))
+            for enm_prediction, name in zip(batch['enm_vals'], names):
                 f.write('>' + name + '\n')
                 f.write(', '.join([str(p) for p in enm_prediction.tolist()[:-1]]) + '\n')
     
-        if suffix == ".pdb":
-            enm_pdb_output_filename = enm_txt_output_filename.replace('.txt', '.pdb')
-            with open(enm_pdb_output_filename, 'w') as f:
-                print("Saving ENM prediction to {}.".format(enm_pdb_output_filename))
-                from data.scripts.data_utils import modify_bfactor_biotite
-                chain_id = parsed_name[1]
-                modify_bfactor_biotite(args.input_file, chain_id, enm_pdb_output_filename, batch['enm_vals'][:,:-1]) #writing the prediction without the last token
+        if suffix == ".pdb" or suffix == ".pdb_list":
+            for name, pdb_file, enm_vals_single in zip(names, pdb_files, batch['enm_vals']):
+                _outname = output_filename.with_name(output_filename.stem + '_{}.pdb'.format(name.replace('.', '_')))
+                print("Saving ENM prediction to {}.".format(_outname))
+                chain_id = name.split('.')[1]
+                _enm_vals = enm_vals_single[:-1].reshape(1,-1)
+                modify_bfactor_biotite(pdb_file, chain_id, _outname, _enm_vals) #writing the prediction without the last token

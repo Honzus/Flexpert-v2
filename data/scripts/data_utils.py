@@ -239,7 +239,7 @@ def modify_bfactor_biotite(input_file, chain_id, output_file, flex_prediction):
 
     :param input_file: Path to the input PDB file
     :param output_file: Path to save the modified PDB file
-    :param flex_prediction: New B-factor value to set (can be a single value or array)
+    :param flex_prediction: New B-factor value to set (should be a 2D array (1,n_residues))
     """
     # Read the PDB file into an AtomArray
     import biotite.structure as struc
