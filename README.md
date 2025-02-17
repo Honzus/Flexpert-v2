@@ -119,10 +119,12 @@ python3 predict.py --modality 3D --input_file data/PDBs/1ah7_A.pdb
 python3 predict.py --modality SEQ --input_file data/PDBs/1ah7_A.pdb
 ```
 
-Example prediction for a particular split of a dataset, which reads whole dataset and the train/val/test splits and performs prediction for the test split:
+Example prediction (and also reproduction of the reported results in the paper) for a particular split of a dataset, which reads whole dataset and the train/val/test splits and performs prediction for the test split:
 
 ```
 python3 predict.py --modality SEQ --input_file data/atlas_sequences.fasta --splits_file data/atlas_splits.json --split test
+
+python3 predict.py --modality 3D --input_file data/atlas_minimized_fluctuations_ANM.jsonl --splits_file data/atlas_splits.json --split test
 ```
 
 Example prediction for a single PDB file and for a list of PDB files with Flexpert-3D, asking to also obtain a separate output with ENM predicted flexibilities, customizing the name of the output files:
