@@ -5,6 +5,7 @@ import zipfile
 import io
 import os
 import yaml
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def download_url(url, retries=3, backoff_factor=0.5):
     """Download the content from a URL with retries.
@@ -30,7 +31,6 @@ def download_url(url, retries=3, backoff_factor=0.5):
     print("All retries failed.")
     return None
 
-# Option 1: Direct unzip from response content
 def save_and_unzip_response(response, extract_path):
     """
     Directly unzip response content to a directory without saving zip file
@@ -46,7 +46,19 @@ def save_and_unzip_response(response, extract_path):
     with zipfile.ZipFile(zip_bytes) as zip_ref:
         zip_ref.extractall(extract_path)
 
+def process_pdb_code(pdb_code, url_base, out_dir):
+    url = url_base + pdb_code
+    response = download_url(url)
+
+    if response and response.status_code == 200:
+        # Extract directly to a directory
+        extract_path = os.path.join(out_dir, pdb_code)
+        os.makedirs(extract_path, exist_ok=True)
+        save_and_unzip_response(response, extract_path)
+
 if __name__== "__main__":
+    import os
+    os.chdir('../../')
     pdb_codes_path = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['pdb_codes_path']
     out_dir = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['atlas_out_dir']
 
@@ -60,13 +72,12 @@ if __name__== "__main__":
     # Example usage:
     url_base = "https://www.dsimb.inserm.fr/ATLAS/api/ATLAS/analysis/"
 
-    for pdb_code in tqdm(pdb_codes):
-        url = url_base + pdb_code
-        #pdb.set_trace()
-        response = download_url(url)
-
-        if response and response.status_code == 200:
-            # Extract directly to a directory
-            extract_path = os.path.join(out_dir, pdb_code)
-            os.makedirs(extract_path, exist_ok=True)
-            save_and_unzip_response(response, extract_path)
+    # Use ThreadPoolExecutor to download and process PDB codes in parallel
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        futures = {executor.submit(process_pdb_code, pdb_code, url_base, out_dir): pdb_code for pdb_code in pdb_codes}
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            pdb_code = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Error processing {pdb_code}: {e}")

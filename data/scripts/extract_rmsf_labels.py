@@ -1,6 +1,6 @@
 import os
 import yaml
-
+import pandas as pd
 def extract_rmsf_labels(file_path):
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -15,7 +15,19 @@ def extract_rmsf_labels(file_path):
             avg_rmsf = (rmsf_r1 + rmsf_r2 + rmsf_r3) / 3
             rmsf_values.append(avg_rmsf)
     return protein_id, rmsf_values
-    
+
+def extract_bfactor_labels(file_path):
+    bfactor = pd.read_csv(file_path, delimiter='\t')['Bfactor']
+    protein_id = file_path.split('/')[-2].split('_')[:-1]
+    protein_id = '.'.join(protein_id)
+    return protein_id, bfactor
+
+def extract_plddt_labels(file_path):
+    plddt = pd.read_csv(file_path, delimiter='\t')['pLDDT']
+    protein_id = file_path.split('/')[-2].split('_')[:-1]
+    protein_id = '.'.join(protein_id)
+    return protein_id, plddt
+
 if __name__ == "__main__":
     config = yaml.load(open('configs/data_config.yaml'), Loader=yaml.FullLoader)
     in_path = config['atlas_out_dir']
