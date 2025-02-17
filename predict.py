@@ -1,5 +1,5 @@
 from data.scripts.data_utils import parse_PDB
-from utils.utils import ClassConfig, DataCollatorForTokenRegression, process_in_batches_and_combine
+from utils.utils import ClassConfig, DataCollatorForTokenRegression, process_in_batches_and_combine, get_dot_separated_name
 from models.T5_encoder_per_token import PT5_classification_model
 from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
 import argparse
@@ -60,6 +60,7 @@ if __name__ == "__main__":
     names = []
     backbones = []
     pdb_files = []
+    flucts_list = []
 
     def process_pdb_file(pdb_file, backbones, sequences, names):
         parsed_name = os.path.splitext(os.path.basename(pdb_file))[0].split('_')
@@ -102,13 +103,20 @@ if __name__ == "__main__":
         for line in open(args.input_file, 'r'):
             _dict = json.loads(line)
 
-            if '_' in _dict['name']:
-                dot_separated_name = '.'.join(_dict['name'].split('_'))
-            elif '.' in _dict['name']:
-                dot_separated_name = _dict['name']
-            else:
-                raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
+            if 'fluctuations' in _dict.keys():
+                print("fluctuations are precomputed, using them")
+                dot_separated_name = get_dot_separated_name(key='pdb_name', _dict=_dict)
+                if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
+            
+                    names.append(_dict['pdb_name'])
+                    backbones.append(None)
+                    sequences.append(_dict['sequence'])
 
+                    flucts_list.append(_dict['fluctuations']+[0.0]) #padding for end cls token
+                continue
+            
+            dot_separated_name = get_dot_separated_name(key='name', _dict=_dict)
+            
             if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
                 backbones.append(_dict['coords'])
                 sequences.append(_dict['seq'])
@@ -145,13 +153,17 @@ if __name__ == "__main__":
     model.eval()
 
     data_to_collate = []
-    for backbone, sequence in zip(backbones, sequences):
+    for idx, (backbone, sequence) in enumerate(zip(backbones, sequences)):
+        
         if args.modality == '3D':
-            _dict = {'coords': backbone, 'seq': sequence}
-            flucts, _ = get_fluctuation_for_json_dict(_dict, enm_type = config['inference_args']['enm_type'])
-            flucts = flucts.tolist()
-            flucts.append(0.0) #To match the special token for the sequence
-            flucts = torch.tensor(flucts).to(config['inference_args']['device'])
+            if backbone is not None:
+                _dict = {'coords': backbone, 'seq': sequence}
+                flucts, _ = get_fluctuation_for_json_dict(_dict, enm_type = config['inference_args']['enm_type'])
+                flucts = flucts.tolist()
+                flucts.append(0.0) #To match the special token for the sequence
+                flucts = torch.tensor(flucts).to(config['inference_args']['device'])
+            else:
+                flucts = flucts_list[idx]
 
         #Ensure that the missing residues in the sequence are not represented as '-' but as 'X'
         sequence = sequence.replace('-', 'X') #due to the tokenizer vocabulary
@@ -194,6 +206,8 @@ if __name__ == "__main__":
                 print("Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1))
 
             assert len(prediction) == len(sequence)+1, "Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1)
+            if '.' in name:
+                name = name.replace('.', '_')
             f.write('>' + name + '\n')
             f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
     
