@@ -371,3 +371,12 @@ def process_in_batches_and_combine(model, batch, sub_batch_size):
     # Example: combine logits if that's what you need
     logits = torch.cat([out.logits for out in outputs], dim=0)
     return logits
+
+def get_dot_separated_name(key, _dict):
+    if '_' in _dict[key]:
+        dot_separated_name = '.'.join(_dict[key].split('_'))
+    elif '.' in _dict[key]:
+        dot_separated_name = _dict[key]
+    else:
+        raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
+    return dot_separated_name
