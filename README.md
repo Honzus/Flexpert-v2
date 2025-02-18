@@ -139,7 +139,7 @@ Tip: when using terminal outside of the singularity container, you can generate 
 
 ## Analysis of the flexibility metrics
 
-To reproduce the numbers in the Tables 1-3 of the paper, run the following commands:
+To reproduce the numbers in the Tables 1-3 of the paper, run the commands below. You may need to first download the ATLAS dataset following the instructions above to get the data for AF2 pLDDT and B-factors.
 
 ```
 #this will give you Table 1 of the paper, running evaluation over whole ATLAS dataset (skipping 7 out of 1390 proteins due to undefined correlations)
