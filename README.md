@@ -139,4 +139,13 @@ Tip: when using terminal outside of the singularity container, you can generate 
 
 ## Analysis of the flexibility metrics
 
-TODO
+To reproduce the numbers in the Tables 1-3 of the paper, run the following commands:
+
+```
+#this will give you Table 1 of the paper, running evaluation over whole ATLAS dataset (skipping 7 out of 1390 proteins due to undefined correlations)
+python3 get_correlation_analysis.py
+
+#this will give you superset of the results reported in Tables 2-3 of the paper, running evaluation over the test split of the ATLAS dataset
+python3 get_correlation_analysis.py --evaluate_flexpert 
+```
+
