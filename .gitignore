@@ -174,7 +174,9 @@ data/atlas/download_analyses.sbatch
 data/atlas/zipped_files/*.zip
 data/atlas/analyses
 data/custom_dataset/rmsf_atlas_data_prottransready.txt
-models/weights/
+#models/weights/
 slurm_out/
 *.sbatch
-slurm*.out
+slurm*.outmodels/weights/flexpert_3d_weights.bin
+models/weights/flexpert_seq_weights.bin
+models/weights/flexpert_seq_weights.pth
