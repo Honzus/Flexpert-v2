@@ -1,6 +1,14 @@
+### Code for the paper "Learning to engineer protein flexibility"
+
+This repository accompanies the ICLR 2025 paper ["Learning to engineer protein flexibility"](https://arxiv.org/abs/2412.18275). It presents the training and inference code for the Flexpert-3D and Flexpert-Seq models, as well as the Flexpert-Design model. Furthermore some scripts on preparing the datasets are provided together with links to download the data and the trained weights. If you find this repository useful in your work, please see the section "References" to learn how to reference our paper and other work related to this repository.
+
 ## Environment
 
-The `environment.txt` file can be used to create your Python environment.
+The `requirements.txt` file in the root directory can be used to create your Python environment for Flexpert-3D, Flexpert-Seq and the analysis of the flexibility metrics. Separate requirements are provided for Flexpert-Design in the respective directory.
+
+```
+pip install -r requirements.txt
+```
 
 Alternatively, use the Docker (Singularity) images with PyTorch, PyTorch Geometric and Pytorch Lightning built for (i) NVIDIA GPUs (CUDA), (ii) AMD GPUs (ROCm), see example below:
 
@@ -22,11 +30,11 @@ singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash #O
 
 Some packages might still be missing, but the crucial packages depending on the GPU drivers should work properly. The missing packages can be installed with pip.
 
-We will provide a complete image in the future.
-
 Note: In our environment, Python is called "python3" thats why we use it in the commands. For different users it might be called just "python".
 
 ## Data
+
+This section provides details on reproducing the training and prediction datasets used in the paper. For running the flexibility predictions using Flexpert-3D and Flexpert-Seq, this section might be skipped, although it discusses some scripts which might be useful for preparing the inputs to the Flexpert-3D and Flexpert-Seq models.
 
 The preprocessed [ATLAS](https://www.dsimb.inserm.fr/ATLAS/download.html) dataset with topology splits is provided in the folder `data/`. To prepare your own dataset, see following example:
 
@@ -75,6 +83,8 @@ If you use the ATLAS dataset, please cite the [paper](https://academic.oup.com/n
 
 ## Training Flexpert-Seq and Flexpert-3D
 
+This section provides details on reproducing the training of Flexpert-Seq and Flexpert-3D models, it might be skipped if you are only interested in running the predictions.
+
 Inside `config/` review the 3 config files: 
 
 1) `lora_config.yaml` contains the default LoRA parameters, from this repo (and corresponding paper). Leave this as it is unless you want to make your own experiments.
@@ -93,6 +103,13 @@ python3 train.py --run_name testrun-3D --adaptor_architecture conv
 The code for the LoRA fine-tuning of protein language models is derived from [this repo](https://github.com/agemagician/ProtTrans/tree/master/Fine-Tuning) accompanying the [paper](https://www.nature.com/articles/s41467-024-51844-2) "Fine-tuning protein language models boosts predictions across diverse tasks" by Schmirler et al.
 
 ## Inference with Flexpert-Seq and Flexpert-3D
+
+To run the predictions, make sure you have the weights for the models you want to use. These can be obtained either by training the models yourself following the above section or by downloading the weights using the following script:
+
+```
+. download_flexpert_weights.sh
+```
+
 Example predictions of flexibility, input is provided by fasta, jsonl, pdb file or a list of paths to PDB files. 
 
 - For fasta and jsonl the output is a txt file with the predicted flexibility profiles. 
@@ -148,4 +165,30 @@ python3 get_correlation_analysis.py
 #this will give you superset of the results reported in Tables 2-3 of the paper, running evaluation over the test split of the ATLAS dataset
 python3 get_correlation_analysis.py --evaluate_flexpert 
 ```
+
+## Flexpert-Design
+
+To run Flexpert-Design, go to the `Flexpert-Design` directory and follow the instructions in the `README.md` file there:
+
+```
+cd Flexpert-Design
+```
+
+## References
+
+If you find this repository useful in your work, please cite our paper:
+
+```
+@inproceedings{
+kouba2025learning,
+title={Learning to engineer protein flexibility},
+author={Petr Kouba and Joan Planas-Iglesias and Jiri Damborsky and Jiri Sedlar and Stanislav Mazurenko and Josef Sivic},
+booktitle={The Thirteenth International Conference on Learning Representations},
+year={2025},
+url={https://openreview.net/forum?id=L238BAx0wP}
+}
+```
+
+Also consider citing the respective papers if you use the [ATLAS MD dataset](https://academic.oup.com/nar/article/52/D1/D384/7438909), the LoRA fine-tuning of protein language models ([Fine-tuning protein language models boosts predictions across diverse tasks](https://www.nature.com/articles/s41467-024-51844-2)) or the training of the inverse folding models inside Flexpert-Design ([ProteinInvBench](https://papers.nips.cc/paper_files/paper/2023/hash/d73078d49799693792fb0f3f32c57fc8-Abstract-Datasets_and_Benchmarks.html)).
+
 
