@@ -180,4 +180,3 @@ slurm_out/
 slurm*.outmodels/weights/flexpert_3d_weights.bin
 models/weights/flexpert_seq_weights.bin
 models/weights/flexpert_seq_weights.pth
-train_esm.py
