@@ -33,7 +33,7 @@ python3 predict_example/compare_seqs.py \
 
 ## Training
 
-First make sure you have the Flexpert-3D model weights in the `Flexpert-nD/models/weights` directory. Alternatively run the following script to download the weights.
+First make sure you have the Flexpert-3D model weights in the `Flexpert/models/weights` directory. Alternatively run the following script to download the weights.
 
 ```bash
 . ../download_flexpert_weights.sh
