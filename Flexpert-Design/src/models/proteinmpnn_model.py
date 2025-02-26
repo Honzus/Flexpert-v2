@@ -89,9 +89,7 @@ class ProteinMPNN_Model(nn.Module):
         # Prepare node and edge embeddings
         E, E_idx = self.features(X, mask, residue_idx, chain_encoding_all)
 
-        # import pdb; pdb.set_trace() #TODO: cache / load from cache here
-        
-        if self.init_flex_features and self.use_dynamics:
+        if self.init_flex_features: #and self.use_dynamics:
             # gt_seq = batch['S']
             # anm_input = batch['enm_vals']
             gt_flex = batch['gt_flex']
@@ -117,9 +115,6 @@ class ProteinMPNN_Model(nn.Module):
             h_V = torch.nan_to_num(h_V, nan=0.0)
         else:
             h_V = torch.zeros((E.shape[0], E.shape[1], E.shape[-1]), device=E.device)
-        
-        # import pdb; pdb.set_trace()
-
 
         h_E = self.W_e(E)
 

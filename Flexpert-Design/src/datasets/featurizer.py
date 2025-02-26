@@ -551,6 +551,8 @@ def featurize_ProteinMPNN(batch, is_testing=False, chain_dict=None, fixed_positi
             if ('norm_bfactors' in batch[0].keys()):
                 b_factors[i, :] = bf_pad
             if ('gt_flex' in batch[0].keys()):
+                print(gt_pad.shape)
+                print(gt_flex.shape)
                 gt_flex[i, :] = gt_pad[:-1]
             if ('enm_vals' in batch[0].keys()):
                 enm_vals[i, :] = enm_pad

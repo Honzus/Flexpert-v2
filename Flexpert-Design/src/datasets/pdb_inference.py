@@ -57,6 +57,14 @@ class PDBInference(data.Dataset):
             print(f'lines size = {len(lines)}')
             data_list = []
 
+            flex_instructions = {}
+            flexibility_files = glob.glob(self.path + '/*instructions.csv')
+            for file in flexibility_files:
+                with open(file, 'r') as f:
+                    flexibility_instructions_parsed= f.read().strip().split(',')
+                    flexibility_instructions_parsed = [float(i) for i in flexibility_instructions_parsed] + [0.0] #add the padding here
+                    flex_instructions[file.split('/')[-1].split('_instructions')[0]] = flexibility_instructions_parsed
+
             for line in tqdm.tqdm(lines):
                 entry = line
 
@@ -66,6 +74,11 @@ class PDBInference(data.Dataset):
                     entry['coords'][key] = np.asarray(val)
                 
                 bad_chars = set([s for s in seq]).difference(alphabet_set)
+                try:
+                    _flex_instructions = flex_instructions[entry['name']]
+                except KeyError:
+                    _flex_instructions = [0.0] * len(seq)
+                    print(f"No flexibility instructions found for {entry['name']}. Passing zeros.")
 
                 if len(bad_chars) == 0:
                     if len(entry['seq']) <= self.max_length: 
@@ -79,7 +92,8 @@ class PDBInference(data.Dataset):
                             'O':entry['coords']['O'],
                             'N':entry['coords']['N'],
                             'chain_mask': chain_mask,
-                            'chain_encoding': 1*chain_mask
+                            'chain_encoding': 1*chain_mask,
+                            'gt_flex': _flex_instructions
                         })
                 else:
                     print(f'Skipping PDBs with Bad chars, e.g. gaps in the sequence: {entry["name"]}')
@@ -113,6 +127,7 @@ class PDBInference(data.Dataset):
             item['N'] = item['N'][truncate_index:truncate_index+self.max_length]
             item['chain_mask'] = item['chain_mask'][truncate_index:truncate_index+self.max_length]
             item['chain_encoding'] = item['chain_encoding'][truncate_index:truncate_index+self.max_length]
+            item['gt_flex'] = item['gt_flex'][truncate_index:truncate_index+self.max_length]
         return item
 
     #Code from data_utils on local PC, based on: https://github.com/JoreyYan/zetadesign/blob/master/data/data.py

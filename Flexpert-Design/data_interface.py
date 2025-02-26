@@ -196,9 +196,10 @@ class DInterface(DInterface_base):
                 args1[arg] = self.hparams[arg]
         args1.update(other_args)
 
-        if self.hparams['test_engineering'] and self.hparams['use_dynamics']:
-            args1['data_jsonl_name'] = self.hparams['test_eng_data_path']
-        elif self.hparams['use_dynamics']:
+        # if self.hparams['test_engineering'] and self.hparams['use_dynamics']:
+        #     args1['data_jsonl_name'] = self.hparams['test_eng_data_path']
+        #elif self.hparams['use_dynamics']:
+        if self.hparams['use_dynamics']:
             args1['data_jsonl_name'] = load_yaml_config('configs/ANMAwareFlexibilityProtTrans.yaml')['data_jsonl_name']
         # import pdb; pdb.set_trace()
         return self.data_module(**args1) #Here this leads to __init__ of the class dataset

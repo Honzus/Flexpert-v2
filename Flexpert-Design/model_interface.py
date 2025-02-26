@@ -88,11 +88,13 @@ class MInterface(MInterface_base):
         ####
 
     def forward(self, batch, mode='train', temperature=1.0):
-
         if self.hparams.augment_eps>0:
             batch['X'] = batch['X'] + self.hparams.augment_eps * torch.randn_like(batch['X'])
 
         batch = self.model._get_features(batch)
+        print(batch['gt_flex'][0,:10])
+        print(batch.keys())
+        print(batch['X'].shape)
         results = self.model(batch)
         
         log_probs, mask = results['log_probs'], batch['mask']

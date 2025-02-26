@@ -21,8 +21,8 @@ def create_parser():
     parser.add_argument('--stage', default='fit', type=str) #'fit', 'test' or 'predict'
     parser.add_argument('--val_check_interval', default=0.5, type=float, help='Validation check interval')
     
-    parser.add_argument('--dataset', default='CATH4.3') # AF2DB_dataset, CATH_dataset
-    parser.add_argument('--model_name', default='E3PiFold', choices=['StructGNN', 'GraphTrans', 'GVP', 'GCA', 'AlphaDesign', 'ESMIF', 'PiFold', 'ProteinMPNN', 'KWDesign', 'E3PiFold'])
+    parser.add_argument('--dataset', default='FLEX_CATH4.3') # AF2DB_dataset, CATH_dataset
+    parser.add_argument('--model_name', default='ProteinMPNN', choices=['StructGNN', 'GraphTrans', 'GVP', 'GCA', 'AlphaDesign', 'ESMIF', 'PiFold', 'ProteinMPNN', 'KWDesign', 'E3PiFold'])
     parser.add_argument('--lr', default=4e-4, type=float, help='Learning rate')
     parser.add_argument('--lr_scheduler', default='onecycle')
     parser.add_argument('--offline', default=1, type=int)
@@ -33,7 +33,7 @@ def create_parser():
     parser.add_argument('--num_workers', default=12, type=int)
     parser.add_argument('--pad', default=1024, type=int)
     parser.add_argument('--min_length', default=40, type=int)
-    parser.add_argument('--data_root', default='./data/')
+    parser.add_argument('--data_root', default='../data/')
     parser.add_argument('--infer_path', default='', type=str)
     
     # Training parameters
@@ -58,7 +58,7 @@ def create_parser():
     parser.add_argument('--get_gt_flex_onthefly', default=0, type=int, help='Flag to get ground truth flexibility on-the-fly (with subsequent caching)')
     parser.add_argument('--init_flex_features', default=1, type=int, help="Set to 0 if no flexibility information should be passed on input to the node features h_V")
     parser.add_argument('--loss_fn', default='MSE', type=str, help= 'Define what loss to use. Choose MSE, L1 or DPO.')
-    parser.add_argument('--grad_normalization', default=1, type=int, help="Set to 0 if the gradients of the seq and flex losses should not be normalized.")
+    parser.add_argument('--grad_normalization', default=0, type=int, help="Set to 0 if the gradients of the seq and flex losses should not be normalized.")
     parser.add_argument('--test_engineering', default=0, type=int, help="In this main.py should be set to 0 to not overwrite the training dataset.")
     
     args = parser.parse_args()
