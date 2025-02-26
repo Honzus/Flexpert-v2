@@ -75,6 +75,8 @@ if __name__ == "__main__":
     args.batch_size = 1
     print('In the predict stage, defaulting batch size to 1.')
 
+    assert args.use_dynamics == 0, "In the inference script this should be set to 0."
+
     if not os.path.exists(args.infer_path):
         os.makedirs(args.infer_path)
         

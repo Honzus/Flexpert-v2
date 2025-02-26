@@ -7,7 +7,7 @@ from biotite.structure import get_residues
 
 def compare_sequences(pdb_code):
     # Read the predicted sequence from predictions.txt
-    with open('predict_examples/predictions.txt', 'r') as f:
+    with open('predict_example/predictions.txt', 'r') as f:
         predictions = f.readlines()
         # Extract the sequence (skip the header line that starts with '>')
         predicted_seqs = {}
@@ -23,7 +23,7 @@ def compare_sequences(pdb_code):
         predicted_seq = predicted_seqs.get(pdb_code, "")
 
     # Read the PDB file
-    pdb_file = f'predict_examples/{pdb_code}.pdb'
+    pdb_file = f'predict_example/{pdb_code}.pdb'
     with open(pdb_file, 'r') as f:
         structure = pdb.PDBFile.read(f)
         atoms = pdb.get_structure(structure)
