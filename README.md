@@ -1,11 +1,14 @@
-# Flexpert: "Learning to engineer protein flexibility"
-
 ![Alt text](Flexpert_logo.png)
 
+# Flexpert: "Learning to engineer protein flexibility"
+
 <a href="https://openreview.net/forum?id=L238BAx0wP"><img src="https://img.shields.io/badge/ICLR-2025-brown.svg" height=22.5></a>
+[![arXiv badge](https://img.shields.io/badge/arXiv-2310.18515-b31b1b.svg)](https://arxiv.org/abs/2412.18275)
 
 
-This repository accompanies the ICLR 2025 paper ["Learning to engineer protein flexibility"](https://arxiv.org/abs/2412.18275). It presents the training and inference code for the Flexpert-3D and Flexpert-Seq models, as well as the Flexpert-Design model. Furthermore some scripts on preparing the datasets are provided together with links to download the data and the trained weights. If you find this repository useful in your work, please see the section "References" to learn how to reference our paper and other work related to this repository.
+This repository accompanies the ICLR 2025 paper ["Learning to engineer protein flexibility"](https://arxiv.org/abs/2412.18275) by Petr Kouba, Joan Planas-Iglesias, Jiri Damborsky, Jiri Sedlar, Stanislav Mazurenko, Josef Sivic. 
+
+The repository presents the training and inference code for the Flexpert-3D and Flexpert-Seq models, as well as the Flexpert-Design model. Furthermore some scripts on preparing the datasets are provided together with links to download the data and the trained weights. If you find this repository useful in your work, please see the section "References" to learn how to reference our paper and other work related to this repository.
 
 ## Environment
 
