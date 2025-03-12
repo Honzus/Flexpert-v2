@@ -3,7 +3,7 @@
 # Flexpert: "Learning to engineer protein flexibility"
 
 [![ICLR badge](https://img.shields.io/badge/ICLR-2025-brown.svg)](https://openreview.net/forum?id=L238BAx0wP)
-[![arXiv badge](https://img.shields.io/badge/arXiv-2310.18515-b31b1b.svg)](https://arxiv.org/abs/2412.18275)
+[![arXiv badge](https://img.shields.io/badge/arXiv-2310.18515-b31b1b.svg?color=blue)](https://arxiv.org/abs/2412.18275)
 
 
 This repository accompanies the ICLR 2025 paper ["Learning to engineer protein flexibility"](https://arxiv.org/abs/2412.18275) by Petr Kouba, Joan Planas-Iglesias, Jiri Damborsky, Jiri Sedlar, Stanislav Mazurenko, Josef Sivic. 
