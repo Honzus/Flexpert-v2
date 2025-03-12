@@ -3,6 +3,7 @@
 # Flexpert: "Learning to engineer protein flexibility"
 
 <a href="https://openreview.net/forum?id=L238BAx0wP"><img src="https://img.shields.io/badge/ICLR-2025-brown.svg" height=22.5></a>
+[![ICLR badge](https://img.shields.io/badge/ICLR-2025-brown.svg)](https://openreview.net/forum?id=L238BAx0wP)
 [![arXiv badge](https://img.shields.io/badge/arXiv-2310.18515-b31b1b.svg)](https://arxiv.org/abs/2412.18275)
 
 
