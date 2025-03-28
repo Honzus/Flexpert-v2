@@ -12,6 +12,8 @@ The repository presents the training and inference code for the Flexpert-3D and 
 
 ## Environment
 
+Tested for Python 3.9. For other versions enviroment might need to be adapted.
+
 The `requirements.txt` file in the root directory can be used to create your Python environment for Flexpert-3D, Flexpert-Seq and the analysis of the flexibility metrics. Separate requirements are provided for Flexpert-Design in the respective directory.
 
 ```

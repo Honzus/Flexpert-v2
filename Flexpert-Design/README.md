@@ -4,6 +4,8 @@ In this directory we provide the code to train and run inference with Flexpert-D
 
 ## Environment
 
+Tested for Python 3.9. For other versions enviroment might need to be adapted.
+
 Assuming you have already installed the environment for Flexpert-3D and Flexpert-Seq, install the additional dependencies for Flexpert-Design using the `requirements.txt` file in this directory.
 
 ```bash
