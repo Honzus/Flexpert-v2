@@ -4,16 +4,16 @@ echo "Downloading Flexpert weights..."
 mkdir -p models/weights
 
 # Set file information for Flexpert weights
-WEIGHTS_URL-3d="https://data.ciirc.cvut.cz/public/projects/2025Flexpert/flexpert-weights/flexpert_3d_weights.bin"
-OUTPUT_FILE-3d="models/weights/flexpert_3d_weights.bin"
+WEIGHTS_URL_3d="https://data.ciirc.cvut.cz/public/projects/2025Flexpert/flexpert-weights/flexpert_3d_weights.bin"
+OUTPUT_FILE_3d="models/weights/flexpert_3d_weights.bin"
 
-WEIGHTS_URL-Seq="https://data.ciirc.cvut.cz/public/projects/2025Flexpert/flexpert-weights/flexpert_seq_weights.bin"
-OUTPUT_FILE-Seq="models/weights/flexpert_seq_weights.bin"
+WEIGHTS_URL_SEQ="https://data.ciirc.cvut.cz/public/projects/2025Flexpert/flexpert-weights/flexpert_seq_weights.bin"
+OUTPUT_FILE_SEQ="models/weights/flexpert_seq_weights.bin"
 
 echo "Downloading Flexpert-3D weights..."
-wget --no-check-certificate "${WEIGHTS_URL-3d}" -O ${OUTPUT_FILE-3d}
+wget --no-check-certificate "${WEIGHTS_URL_3d}" -O ${OUTPUT_FILE_3d}
 
 echo "Downloading Flexpert-Seq weights..."
-wget --no-check-certificate "${WEIGHTS_URL-Seq}" -O ${OUTPUT_FILE-Seq}
+wget --no-check-certificate "${WEIGHTS_URL_SEQ}" -O ${OUTPUT_FILE_SEQ}
 
 echo "Flexpert weights download completed."
