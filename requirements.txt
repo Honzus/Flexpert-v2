@@ -14,3 +14,4 @@ tqdm
 transformers
 sentencepiece
 ProDy
+evaluate
