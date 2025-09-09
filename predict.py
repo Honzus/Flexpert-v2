@@ -148,6 +148,7 @@ if __name__ == "__main__":
         state_dict = torch.load(config['inference_args']['seq_model_path'], map_location=config['inference_args']['device'])
         model.load_state_dict(state_dict, strict=False)
     elif args.modality == '3D':
+        print("Loading 3D model from {}".format(config['inference_args']['3d_model_path']))
         state_dict = torch.load(config['inference_args']['3d_model_path'], map_location=config['inference_args']['device'])
         model.load_state_dict(state_dict, strict=False)
     model.eval()
@@ -196,6 +197,7 @@ if __name__ == "__main__":
         # subselect the predictions using the attention mask
     
     output_filename = Path(config['inference_args']['prediction_output_dir'].format(args.output_name, args.modality, 'all' if not args.split else args.split))
+    output_filename.parent.mkdir(parents=True, exist_ok=True)
 
     #Write the predictions to files
     with open(output_filename.with_suffix('.txt'), 'w') as f:
