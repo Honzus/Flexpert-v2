@@ -34,8 +34,10 @@ singularity pull docker://koubic/lumi-pyg-lightning-tk:latest
 singularity pull docker://koubic/karolina_cuda_pyg:latest
 
 #On the GPU node (e.g. after allocating interactive job on a GPU node), activate the singularity container e.g. like this (mounting the /scratch drive, mount the directory relevant for you):
-singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash #Or use the other container in case of CUDA machine
+singularity exec -B /scratch/:/scratch/ lumi-pyg-lightning-tk_latest.sif bash 
 
+#When using the other container in case of CUDA machine, run
+singularity exec -B /scratch/:/scratch/  --nv karolina_cuda_pyg_latest.sif bash 
 ```
 
 Some packages might still be missing, but the crucial packages depending on the GPU drivers should work properly. The missing packages can be installed with pip.
