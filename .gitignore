@@ -2,6 +2,8 @@ HF_cache/
 wandb/
 results/
 results_debug/
+venv/
+venv_torch/
 
 lumi-pyg-lightning-tk_latest.sif
 karolina_cuda_pyg_latest.sif

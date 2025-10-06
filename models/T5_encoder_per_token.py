@@ -124,11 +124,11 @@ def PT5_classification_model(half_precision, class_config):
     # Load PT5 and tokenizer
     # possible to load the half preciion model (thanks to @pawel-rezo for pointing that out)
     if not half_precision:
-        model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
-        tokenizer = T5Tokenizer.from_pretrained("Rostlab/prot_t5_xl_uniref50")
+        model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50", local_files_only=True)
+        tokenizer = T5Tokenizer.from_pretrained("Rostlab/prot_t5_xl_uniref50", local_files_only=True)
     elif half_precision and torch.cuda.is_available(): 
-        tokenizer = T5Tokenizer.from_pretrained('Rostlab/prot_t5_xl_half_uniref50-enc', do_lower_case=False)
-        model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_half_uniref50-enc", torch_dtype=torch.float16).to(torch.device('cuda'))
+        tokenizer = T5Tokenizer.from_pretrained('Rostlab/prot_t5_xl_half_uniref50-enc', local_files_only=True, do_lower_case=False)
+        model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_half_uniref50-enc", local_files_only=True, torch_dtype=torch.float16).to(torch.device('cuda'))
     else:
           raise ValueError('Half precision can be run on GPU only.')
     

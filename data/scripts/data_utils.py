@@ -181,9 +181,9 @@ def parse_PDB(path_to_pdb,name, input_chain_list=None):
             array_stack = PDBFile.get_structure(altloc="all")
 
 
-            sse1 = struc.annotate_sse(array_stack[0], chain_id=letter).tolist()
+            sse1 = struc.annotate_sse(array_stack[0]).tolist()
             if len(sse1)==0:
-                sse1 = struc.annotate_sse(array_stack[0], chain_id='').tolist()
+                sse1 = struc.annotate_sse(array_stack[0]).tolist()
             #ssedssp1 = dssp.DsspApp.annotate_sse(array_stack).tolist()
             ssedssp1 = [] #not annotating dssp for now
 
@@ -245,7 +245,9 @@ def modify_bfactor_biotite(input_file, chain_id, output_file, flex_prediction):
     import biotite.structure as struc
     import biotite.structure.io as strucio
     structure = strucio.load_structure(input_file)
-    structure = structure[structure.chain_id == chain_id]
+    available_chains = np.unique(structure.chain_id)
+    if chain_id in available_chains:
+        structure = structure[structure.chain_id == chain_id]
     structure = structure[~structure.hetero]
     
     new_bfactor_column = []

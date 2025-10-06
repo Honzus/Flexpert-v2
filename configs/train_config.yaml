@@ -2,7 +2,7 @@ data_path: 'data/rmsf_atlas_data_prottransready.txt'
 fasta_path: 'data/atlas_sequences.fasta'
 enm_path: 'data/atlas_minimized_fluctuations_ANM.jsonl'
 splits_path: 'data/atlas_splits.json'
-batch_size: 4
+batch_size: 2
 epochs: 100
 add_pearson_loss: False
 add_sse_loss: False
@@ -22,7 +22,7 @@ dropout_rate: 0.2
 training_args:
   output_dir: './results/results_{run_name}_{timestamp}'
   run_name: null  # This will be set programmatically
-  evaluation_strategy: 'steps'            
+  eval_strategy: 'steps'            
   save_strategy: 'steps'
   load_best_model_at_end: True         # Load the best model (based on metric) at the end of training
   metric_for_best_model: 'spearmanr'    # The metric to use to compare models

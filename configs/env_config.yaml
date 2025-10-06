@@ -1,5 +1,5 @@
 huggingface:
-  HF_HOME: /scratch/project_465001401/Flexpert-nD/HF_cache
+  HF_HOME: /home/richtj28/huggingface_cache
 wandb:
   project: 'Flexpert-nD-Karolina'
 gpus:
