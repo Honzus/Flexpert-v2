@@ -45,7 +45,7 @@ from utils.utils import (
     ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset, save_finetuned_model, 
     DataCollatorForTokenRegression, do_topology_split, update_config, compute_metrics
 )
-from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification
+from models.T5_encoder_per_token import PT5_classification_model, T5EncoderForTokenClassification, ESM2_classification_model, ESM2EncoderForTokenClassification
 from models.enm_adaptor_heads import (
     ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
     ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
@@ -180,7 +180,8 @@ if __name__=='__main__':
         
     ### Load model
     class_config=ClassConfig(config)
-    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    # model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    model, tokenizer = ESM2_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
     
     ### Split data into train, valid, test and preprocess
     train,valid,test = do_topology_split(df, SPLITS_PATH)
