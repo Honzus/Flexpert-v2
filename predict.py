@@ -1,6 +1,6 @@
 from data.scripts.data_utils import parse_PDB
 from utils.utils import ClassConfig, DataCollatorForTokenRegression, process_in_batches_and_combine, get_dot_separated_name
-from models.T5_encoder_per_token import PT5_classification_model
+from models.T5_encoder_per_token import PT5_classification_model, ESM2_classification_model
 from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
 import argparse
 import os
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     config = yaml.load(open('configs/train_config.yaml', 'r'), Loader=yaml.FullLoader)
     class_config=ClassConfig(config)
     class_config.adaptor_architecture = 'no-adaptor' if args.modality == 'SEQ' else 'conv'
-    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    model, tokenizer = ESM2_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
 
     model.to(config['inference_args']['device'])
     if args.modality == 'SEQ':
@@ -151,6 +151,9 @@ if __name__ == "__main__":
         print("Loading 3D model from {}".format(config['inference_args']['3d_model_path']))
         state_dict = torch.load(config['inference_args']['3d_model_path'], map_location=config['inference_args']['device'])
         model.load_state_dict(state_dict, strict=False)
+    
+    if config['mixed_precision']:
+        model.float()
     model.eval()
 
     data_to_collate = []
@@ -204,23 +207,24 @@ if __name__ == "__main__":
         print("Saving predictions to {}.".format(output_filename))
         for prediction, mask, name, sequence in zip(predictions, batch['attention_mask'], names, sequences):
             prediction = prediction[mask.bool()]
-            if len(prediction) != len(sequence)+1:
-                print("Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1))
-
-            assert len(prediction) == len(sequence)+1, "Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1)
+            if len(prediction) != len(sequence)+2:
+                print("Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction)))
+            assert len(prediction) == len(sequence)+2, "Prediction length {} is not equal to sequence length {} + 1".format(len(prediction), len(sequence)+1)
             if '.' in name:
                 name = name.replace('.', '_')
             f.write('>' + name + '\n')
-            f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
+            f.write(', '.join([str(p) for p in prediction.tolist()[1:-1]]) + '\n')
     
     if suffix == ".pdb" or suffix == ".pdb_list":
         for name, pdb_file, prediction in zip(names, pdb_files, predictions):
             chain_id = name.split('.')[1]
-            _prediction = prediction[:-1].reshape(1,-1)
+            _prediction = prediction[1:-1].reshape(1,-1)
             _outname = output_filename.with_name(output_filename.stem + '_{}.pdb'.format(name.replace('.', '_')))
             print("Saving prediction to {}.".format(_outname))
             modify_bfactor_biotite(pdb_file, chain_id, _outname, _prediction) #writing the prediction without the last token
 
+    # Need to check how it works for ENM
+    print("Need to check how it works for ENM")
     if args.output_enm:
         _outname = output_filename.with_name(output_filename.stem + '_enm.txt')
         with open(_outname, 'w') as f:

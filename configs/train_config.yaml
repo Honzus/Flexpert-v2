@@ -10,7 +10,7 @@ enm_embed_dim: 128
 enm_att_heads: 8
 num_layers: 3
 kernel_size: 5
-mixed_precision: False
+mixed_precision: True
 gradient_accumulation_steps: 1
 seed: 42
 adaptor_architecture: null
@@ -35,7 +35,7 @@ training_args:
 
 inference_args:
   device: 'cuda:0'
-  seq_model_path: ./models/weights/flexpert_seq_weights.bin
+  seq_model_path: ./results/150M_half_precision/results_testrun-Seq_20251009_153919/final_model/pytorch_model.bin
   3d_model_path: ./models/weights/flexpert_3d_weights.bin
   enm_type: 'ANM'
   batch_size: 4

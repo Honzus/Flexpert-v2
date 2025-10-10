@@ -284,10 +284,11 @@ def ESM2_classification_model(half_precision, class_config):
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     print(half_precision)
     if not half_precision:
+        print("FULL")
         model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", local_files_only=True).to(torch.device('cuda:0'))
         tokenizer = AutoTokenizer.from_pretrained('facebook/esm2_t30_150M_UR50D', local_files_only=True)
     elif half_precision: 
-        print("YES NOW BRUDDA")
+        print("HALF")
         tokenizer = AutoTokenizer.from_pretrained('facebook/esm2_t30_150M_UR50D', do_lower_case=False, local_files_only=True)
         model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", torch_dtype=torch.float16, local_files_only=True).to(torch.device('cuda:0'))
     else:

@@ -6,6 +6,22 @@ from data.scripts.extract_rmsf_labels import extract_rmsf_labels, extract_bfacto
 import yaml
 from tqdm import tqdm
 import os
+
+# def extract(DATA_PATH):
+#     names, labels = [], []
+    
+#     with open(DATA_PATH, "r") as f:
+#         lines = f.readlines()
+#         # Split each line into name and label
+#         for l in lines:
+#             _split_line = l.split(":\t")
+#             names.append(_split_line[0])
+#             labels.append([float(label) for label in _split_line[1].split(", ")])
+
+#      # Add label and enm_vals columns
+#     df = pd.DataFrame({"name": names, "label": labels})
+#     return df
+
 def get_flucts_from_pickle(f):
     return pickle.load(f)
 
@@ -62,9 +78,9 @@ if __name__ == "__main__":
     atlas_list_path = config['pdb_codes_path']
     atlas_analyses_dir = config['atlas_out_dir']
 
-    atlas_bfactor_path = atlas_analyses_dir + "/{}_analysis/{}_Bfactor.tsv"
-    atlas_plddt_path = atlas_analyses_dir + "/{}_analysis/{}_pLDDT.tsv"
-    atlas_rmsf_path = atlas_analyses_dir + "/{}_analysis/{}_RMSF.tsv"
+    atlas_bfactor_path = atlas_analyses_dir + "/{}/{}_Bfactor.tsv"
+    atlas_plddt_path = atlas_analyses_dir + "/{}/{}_pLDDT.tsv"
+    atlas_rmsf_path = atlas_analyses_dir + "/{}/{}_RMSF.tsv" # "./data/rmsf_atlas_data_prottransready.txt"
 
     with open(atlas_list_path,'r') as f:
         atlas_list = f.readlines()
@@ -76,12 +92,14 @@ if __name__ == "__main__":
         print("Filtering to testset only, to evaluate Flexpert-3D and Flexpert-Seq predictions")
         atlas_list = [a for a in atlas_list if a in flexpert_seq_predictions.keys()]
 
+    #rmsf_extracted = extract(atlas_rmsf_path)
+
     for key in tqdm(atlas_list):
         fluctuations[key] = pd.DataFrame()
         fluctuations[key]['prody_ANM'] = np.sqrt(anm_sqFlucts.get(key, np.nan))
         fluctuations[key]['prody_GNM'] = np.sqrt(gnm_sqFlucts.get(key, np.nan))
         fluctuations[key]['esm_plddt'] = 1 - esm_plddt.get(key, np.nan)
-        fluctuations[key]['rmsf'] = extract_rmsf_labels(atlas_rmsf_path.format(key, key))[1]
+        fluctuations[key]['rmsf'] = extract_rmsf_labels(atlas_rmsf_path.format(key, key))[1] #rmsf_extracted.loc[rmsf_extracted["name"] == key, "label"]
         fluctuations[key]['bfactor'] = extract_bfactor_labels(atlas_bfactor_path.format(key, key))[1]
         fluctuations[key]['af2_plddt'] = 1 - extract_plddt_labels(atlas_plddt_path.format(key, key))[1]
         if args.evaluate_flexpert and key in flexpert_seq_predictions.keys():
@@ -112,4 +130,3 @@ if __name__ == "__main__":
     pearson_mean_rounded = np.round(pearson_mean, 2)
     print(pd.DataFrame(pearson_mean_rounded, index=columns, columns=columns))
     print("\n")
-    
