@@ -12,6 +12,8 @@ from typing import Union, Optional
 from datasets import Dataset
 import numpy as np
 import random
+from scipy.stats import spearmanr, pearsonr
+from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
 
 @dataclass
@@ -226,13 +228,25 @@ def compute_metrics(eval_pred):
 
     valid_labels=labels[np.where((labels != -100 ) & (labels < 900 ))]
     valid_predictions=predictions[np.where((labels != -100 ) & (labels < 900 ))]
-    #assuming the ENM vals are subtracted from the labels for correct evaluation
-    spearman = load("spearmanr")
-    pearson = load("pearsonr")
-    mse = load("mse")
-    return {"spearmanr": spearman.compute(predictions=valid_predictions, references=valid_labels)['spearmanr'],
-            "pearsonr": pearson.compute(predictions=valid_predictions, references=valid_labels)['pearsonr'],
-            "mse": mse.compute(predictions=valid_predictions, references=valid_labels)['mse']}
+
+    if valid_labels.size == 0:
+        return {"spearmanr": 0.0, "pearsonr": 0.0, "mse": 0.0}
+    
+    # Spearman's rho (Rank Correlation): scipy.stats.spearmanr returns (rho, p_value)
+    spearman_rho, _ = spearmanr(valid_labels, valid_predictions)
+
+    # Pearson's r (Linear Correlation): scipy.stats.pearsonr returns (r_value, p_value)
+    pearson_r, _ = pearsonr(valid_labels, valid_predictions)
+
+    # Mean Squared Error (MSE): sklearn.metrics.mean_squared_error returns the scalar MSE
+    mse_value = mean_squared_error(valid_labels, valid_predictions)
+    
+    # Return the metrics in the required dictionary format
+    return {
+        "spearmanr": spearman_rho,
+        "pearsonr": pearson_r,
+        "mse": mse_value
+    }
 
 ### ESM-2
 

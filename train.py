@@ -28,7 +28,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from torch.utils.data import DataLoader
 
 import transformers
-from transformers import T5EncoderModel, T5Tokenizer, TrainingArguments, Trainer, set_seed
+from transformers import T5EncoderModel, T5Tokenizer, TrainingArguments, Trainer, set_seed, TrainerState, TrainerControl, TrainerCallback
 from transformers.modeling_outputs import TokenClassifierOutput
 from transformers import T5Config, T5PreTrainedModel
 from transformers.models.t5.modeling_t5 import T5Stack
@@ -50,6 +50,73 @@ from models.enm_adaptor_heads import (
     ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, 
     ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 )
+
+def reset_and_get_peak(step):
+    """Resets peak tracker and prints the peak memory allocated in the prior step."""
+    if torch.cuda.is_available():
+        device_id = torch.cuda.current_device()
+        
+        # Get the maximum recorded allocation since the last reset
+        peak_allocated_gb = torch.cuda.max_memory_allocated(device_id) / 1024**3
+        
+        # Reset the peak tracker so the next call measures the next step only
+        torch.cuda.reset_peak_memory_stats(device_id)
+        
+        print(f"--- GPU {device_id} Peak Status @ End of Step {step} ---")
+        print(f"Peak Allocated: {peak_allocated_gb:.2f} GB (The hidden max)")
+        print("-" * 45)
+
+def print_cuda_memory_status(step):
+    """Prints the currently allocated and reserved GPU memory in GB."""
+    if torch.cuda.is_available():
+        # Using device 0 as an assumption, adjust if you're using a different GPU
+        device_id = torch.cuda.current_device()
+        
+        # Memory currently occupied by Tensors (what you're actually using)
+        allocated_gb = torch.cuda.memory_allocated(device_id) / 1024**3
+        
+        # Memory reserved by PyTorch's caching allocator (the total chunk size)
+        reserved_gb = torch.cuda.memory_reserved(device_id) / 1024**3
+        
+        # Total VRAM on the device (for context)
+        total_vram_gb = torch.cuda.get_device_properties(device_id).total_memory / 1024**3
+        
+        print(f"\n--- GPU {device_id} Status @ Step {step} ---")
+        print(f"Total VRAM: {total_vram_gb:.2f} GB")
+        print(f"Allocated:  {allocated_gb:.2f} GB (Actual Tensor Usage)")
+        print(f"Reserved:   {reserved_gb:.2f} GB (PyTorch Pool Size)")
+        print("-" * 40)
+
+class PeakMonitorCallback(TrainerCallback):
+    # This runs at the start of the *first* step only, setting a clean slate
+    def on_train_begin(self, args, state, control, **kwargs):
+        if torch.cuda.is_available() and state.is_world_process_zero:
+            # Clear historical stats before training starts
+            torch.cuda.reset_peak_memory_stats(torch.cuda.current_device())
+
+    # This runs *after* the entire forward/backward pass and optimization for the step
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.is_world_process_zero and state.global_step > 0:
+            reset_and_get_peak(state.global_step - 1) # Log peak from the step that just finished
+            # Note: The `reset_peak_memory_stats` call is essential here!
+
+class HighFrequencyGPUMonitorCallback(TrainerCallback):
+    """
+    Calls the monitoring function at the start of every training step.
+    This provides the maximum possible monitoring frequency.
+    """
+    
+    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        # Only check on the main process (world_process_zero) to prevent flooding 
+        # the logs if you are using multi-GPU training.
+        if state.is_world_process_zero:
+            print_cuda_memory_status(state.global_step)
+            
+    # Optionally, also monitor after the crash cleanup if the system is still alive
+    def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        if state.is_world_process_zero:
+            print("\nMonitoring at Training End (Post-Cleanup Check):")
+            print_cuda_memory_status(state.global_step)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model on the CATH dataset')
