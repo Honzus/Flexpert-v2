@@ -12,6 +12,8 @@ from typing import Union, Optional
 from datasets import Dataset
 import numpy as np
 import random
+from scipy.stats import spearmanr, pearsonr
+from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
 
 @dataclass
@@ -143,20 +145,36 @@ class ClassConfig:
 
 class ENMAdaptedTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        # labels = inputs.get("labels")
+        # #enm_vals = inputs.get("enm_vals")
+        
+        # outputs = model(**inputs)
+        # logits = outputs.get('logits')
+        # mask = inputs.get('attention_mask')
+        # loss_fct = MSELoss()
+
+        # flat_logits = logits.view(-1)
+        # flat_labels = labels.view(-1)
+        # flat_mask = mask.view(-1) == 1 # This is our filter!
+
+        # # 2. **Filter Directly:** Use the boolean mask to select elements
+        # #    This avoids creating the full-size `active_labels` tensor.
+        # valid_logits = flat_logits[flat_mask]
+        # valid_labels = flat_labels[flat_mask]
+
+        # loss = loss_fct(valid_labels, valid_logits)
+        # return (loss, outputs) if return_outputs else loss
         labels = inputs.get("labels")
         #enm_vals = inputs.get("enm_vals")
-        
         outputs = model(**inputs)
         logits = outputs.get('logits')
         mask = inputs.get('attention_mask')
         loss_fct = MSELoss()
-
         active_loss = mask.view(-1) == 1
         active_logits = logits.view(-1)
         active_labels = torch.where(active_loss, labels.view(-1), torch.tensor(-100).type_as(labels))
         valid_logits=active_logits[active_labels!=-100]
         valid_labels=active_labels[active_labels!=-100]
-
         loss = loss_fct(valid_labels, valid_logits)
         return (loss, outputs) if return_outputs else loss
 
@@ -226,13 +244,25 @@ def compute_metrics(eval_pred):
 
     valid_labels=labels[np.where((labels != -100 ) & (labels < 900 ))]
     valid_predictions=predictions[np.where((labels != -100 ) & (labels < 900 ))]
-    #assuming the ENM vals are subtracted from the labels for correct evaluation
-    spearman = load("spearmanr")
-    pearson = load("pearsonr")
-    mse = load("mse")
-    return {"spearmanr": spearman.compute(predictions=valid_predictions, references=valid_labels)['spearmanr'],
-            "pearsonr": pearson.compute(predictions=valid_predictions, references=valid_labels)['pearsonr'],
-            "mse": mse.compute(predictions=valid_predictions, references=valid_labels)['mse']}
+
+    if valid_labels.size == 0:
+        return {"spearmanr": 0.0, "pearsonr": 0.0, "mse": 0.0}
+    
+    # Spearman's rho (Rank Correlation): scipy.stats.spearmanr returns (rho, p_value)
+    spearman_rho, _ = spearmanr(valid_labels, valid_predictions)
+
+    # Pearson's r (Linear Correlation): scipy.stats.pearsonr returns (r_value, p_value)
+    pearson_r, _ = pearsonr(valid_labels, valid_predictions)
+
+    # Mean Squared Error (MSE): sklearn.metrics.mean_squared_error returns the scalar MSE
+    mse_value = mean_squared_error(valid_labels, valid_predictions)
+    
+    # Return the metrics in the required dictionary format
+    return {
+        "spearmanr": spearman_rho,
+        "pearsonr": pearson_r,
+        "mse": mse_value
+    }
 
 ### ESM-2
 

@@ -9,6 +9,7 @@ from transformers.modeling_outputs import TokenClassifierOutput
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from models.enm_adaptor_heads import ENMAdaptedAttentionClassifier, ENMAdaptedDirectClassifier, ENMAdaptedConvClassifier, ENMNoAdaptorClassifier
 from utils.lora_utils import LoRAConfig, modify_with_lora
+from peft import LoraConfig, get_peft_model, TaskType
 
 class T5EncoderForTokenClassification(T5PreTrainedModel):
 
@@ -280,46 +281,48 @@ class ESM2EncoderForTokenClassification(EsmPreTrainedModel):
         )
 
 def ESM2_classification_model(half_precision, class_config):
+    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    print(half_precision)
     if not half_precision:
-        model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", local_files_only=True)
+        model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", local_files_only=True).to(torch.device('cuda:0'))
         tokenizer = AutoTokenizer.from_pretrained('facebook/esm2_t30_150M_UR50D', local_files_only=True)
-    elif half_precision and torch.cuda.is_available(): 
+    elif half_precision: 
+        print("YES NOW BRUDDA")
         tokenizer = AutoTokenizer.from_pretrained('facebook/esm2_t30_150M_UR50D', do_lower_case=False, local_files_only=True)
-        model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", torch_dtype=torch.float16, local_files_only=True).to(torch.device('cuda'))
+        model = AutoModel.from_pretrained("facebook/esm2_t30_150M_UR50D", torch_dtype=torch.float16, local_files_only=True).to(torch.device('cuda:0'))
     else:
         raise ValueError('Half precision can be run on GPU only.')
+
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print("ESM2-150M_Classfier\nTrainable Parameter: "+ str(params)) 
+
+    lora_config = LoraConfig(
+        r=16,                                 # LoRA Rank (adjust for performance/size)
+        lora_alpha=32,                        # Scaling factor
+        target_modules=["query", "key", "value"], # ESM2 uses 'query', 'key', 'value' in its layers. 
+                                                  # Check the model structure if you encounter errors!
+        lora_dropout=0.05,
+        bias="none",
+        # Use TaskType.TOKEN_CLS for Token Classification/Regression
+        task_type=TaskType.TOKEN_CLS, 
+    )
+
+    # Convert the base model to a PeftModel with LoRA layers
+    lora_model = get_peft_model(model, lora_config)
     
-    # Create new Classifier model with PT5 dimensions
-    class_model=ESM2EncoderForTokenClassification(model.config,class_config)
+    # Print the trainable parameter breakdown after applying LoRA
+    lora_model.print_trainable_parameters()
+
+    class_model=ESM2EncoderForTokenClassification(lora_model.config,class_config)
     
     # Set encoder and embedding weights to checkpoint weights
-    class_model.encoder=model  
-    #import pdb; pdb.set_trace()
+    class_model.encoder=lora_model  
     # Delete the checkpoint model
     model = class_model
-    
-    # Print number of trainable parameters
+
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
-    print("ESM2-650M_Classfier\nTrainable Parameter: "+ str(params))    
- 
-    # Add model modification lora
-    config = LoRAConfig('configs/lora_config.yaml')
-    
-    # Add LoRA layers
-    model = modify_with_lora(model, config)
-    
-    # Freeze Embeddings and Encoder (except LoRA)
-    for (param_name, param) in model.encoder.named_parameters():
-                param.requires_grad = False       
+    print("ESM2-150M_LoRA_Classfier\nTrainable Parameter: " + str(params) + "\n")
 
-    for (param_name, param) in model.named_parameters():
-            if re.fullmatch(config.trainable_param_names, param_name):
-                param.requires_grad = True
-
-    # Print trainable Parameter          
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    print("ESM2-650M_LoRA_Classfier\nTrainable Parameter: "+ str(params) + "\n")
-    
     return model, tokenizer

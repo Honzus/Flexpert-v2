@@ -2,7 +2,7 @@ data_path: 'data/rmsf_atlas_data_prottransready.txt'
 fasta_path: 'data/atlas_sequences.fasta'
 enm_path: 'data/atlas_minimized_fluctuations_ANM.jsonl'
 splits_path: 'data/atlas_splits.json'
-batch_size: 2
+batch_size: 16
 epochs: 100
 add_pearson_loss: False
 add_sse_loss: False
@@ -20,7 +20,7 @@ dropout_rate: 0.2
 
 #huggingface trainer arguments
 training_args:
-  output_dir: './results/results_{run_name}_{timestamp}'
+  output_dir: './results/150M_full_precision/results_{run_name}_{timestamp}'
   run_name: null  # This will be set programmatically
   eval_strategy: 'steps'            
   save_strategy: 'steps'
