@@ -1,6 +1,6 @@
 from data.scripts.data_utils import parse_PDB
 from utils.utils import ClassConfig, DataCollatorForTokenRegression, process_in_batches_and_combine, get_dot_separated_name
-from models.T5_encoder_per_token import PT5_classification_model
+from models.T5_encoder_per_token import PT5_classification_model, ESM2_classification_model
 from data.scripts.get_enm_fluctuations_for_dataset import get_fluctuation_for_json_dict
 import argparse
 import os
@@ -23,6 +23,8 @@ if __name__ == "__main__":
     parser.add_argument("--output_enm", action='store_true', help="If true, the ENM values will be outputted in separate file(s).")
     parser.add_argument("--output_fasta", action='store_true', help="If true, the sequences used for the prediction will be outputted in a fasta file (can be relevant when working with input list of PDB files).")
     parser.add_argument("--output_name", type=str, required=False, help="Name of the output file.")
+    parser.add_argument('--lora_r', type=int, default=16)
+    parser.add_argument('--lora_alpha', type=int, default=32)
     args = parser.parse_args()
 
     args.modality = args.modality.upper()
@@ -61,6 +63,7 @@ if __name__ == "__main__":
     backbones = []
     pdb_files = []
     flucts_list = []
+    skipped = 0
 
     def process_pdb_file(pdb_file, backbones, sequences, names):
         parsed_name = os.path.splitext(os.path.basename(pdb_file))[0].split('_')
@@ -91,6 +94,9 @@ if __name__ == "__main__":
             else:
                 raise ValueError("Sequence name must contain either an underscore or a dot to separate the PDB code and the chain code.")
             if datapoint_for_eval == 'all' or dot_separated_name in datapoint_for_eval:
+                # if len(str(record.seq)) > 1022:   ONLY FOR ESM NEW(I.E OLD) ESM MODEL
+                #     skipped += 1 
+                #     continue
                 names.append(dot_separated_name)
                 sequences.append(str(record.seq))
                 backbones.append(None)
@@ -131,6 +137,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("Input file must be a fasta, pdb, jsonl file or a pdb list file")
 
+    print(f"Skipped {skipped}")
     ### Set environment variables
     env_config = yaml.load(open('configs/env_config.yaml', 'r'), Loader=yaml.FullLoader)
     # Set folder for huggingface cache
@@ -141,7 +148,7 @@ if __name__ == "__main__":
     config = yaml.load(open('configs/train_config.yaml', 'r'), Loader=yaml.FullLoader)
     class_config=ClassConfig(config)
     class_config.adaptor_architecture = 'no-adaptor' if args.modality == 'SEQ' else 'conv'
-    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
+    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config, lora_r=4, lora_alpha=4)
 
     model.to(config['inference_args']['device'])
     if args.modality == 'SEQ':
@@ -151,6 +158,9 @@ if __name__ == "__main__":
         print("Loading 3D model from {}".format(config['inference_args']['3d_model_path']))
         state_dict = torch.load(config['inference_args']['3d_model_path'], map_location=config['inference_args']['device'])
         model.load_state_dict(state_dict, strict=False)
+    
+    if config['mixed_precision']:
+        model.float()
     model.eval()
 
     data_to_collate = []
@@ -172,6 +182,11 @@ if __name__ == "__main__":
         tokenizer_out = tokenizer(' '.join(sequence), add_special_tokens=True, return_tensors='pt')
         tokenized_seq, attention_mask = tokenizer_out['input_ids'].to(config['inference_args']['device']), tokenizer_out['attention_mask'].to(config['inference_args']['device'])
         
+        print(f"[{idx}]: Raw Residue Length: {len(sequence)}")
+        print(f"[{idx}]: Tokenized Shape: {tokenized_seq.shape}")
+        print(f"[{idx}]: Max Token ID: {tokenized_seq.max().item()}")
+        print(f"[{idx}]: Min Token ID: {tokenized_seq.min().item()}")
+
         if args.modality == '3D':
             data_to_collate.append({'input_ids': tokenized_seq[0,:], 'attention_mask': attention_mask[0,:], 'enm_vals': flucts})
         elif args.modality == 'SEQ':
@@ -207,16 +222,16 @@ if __name__ == "__main__":
             if len(prediction) != len(sequence)+1:
                 print("Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1))
 
-            assert len(prediction) == len(sequence)+1, "Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1)
+            assert len(prediction) == len(sequence)+1, "Prediction length {} is not equal to sequence length + 1 {}".format(len(prediction), len(sequence)+1) #+2 for ESM2
             if '.' in name:
                 name = name.replace('.', '_')
             f.write('>' + name + '\n')
-            f.write(', '.join([str(p) for p in prediction.tolist()[:-1]]) + '\n')
+            f.write(', '.join([str(p) for p in prediction.tolist()[1:-1]]) + '\n')
     
     if suffix == ".pdb" or suffix == ".pdb_list":
         for name, pdb_file, prediction in zip(names, pdb_files, predictions):
             chain_id = name.split('.')[1]
-            _prediction = prediction[:-1].reshape(1,-1)
+            _prediction = prediction[1:-1].reshape(1,-1)
             _outname = output_filename.with_name(output_filename.stem + '_{}.pdb'.format(name.replace('.', '_')))
             print("Saving prediction to {}.".format(_outname))
             modify_bfactor_biotite(pdb_file, chain_id, _outname, _prediction) #writing the prediction without the last token

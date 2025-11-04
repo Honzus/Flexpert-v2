@@ -2,7 +2,7 @@ data_path: 'data/rmsf_atlas_data_prottransready.txt'
 fasta_path: 'data/atlas_sequences.fasta'
 enm_path: 'data/atlas_minimized_fluctuations_ANM.jsonl'
 splits_path: 'data/atlas_splits.json'
-batch_size: 8 #full = 8
+batch_size: 8
 epochs: 100
 add_pearson_loss: False
 add_sse_loss: False
@@ -20,7 +20,7 @@ dropout_rate: 0.2
 
 #huggingface trainer arguments
 training_args:
-  output_dir: './results/650M_full_precision/results_{run_name}_{timestamp}'
+  output_dir: './results/ProT5/results_{run_name}_{timestamp}'
   run_name: null  # This will be set programmatically
   eval_strategy: 'steps'            
   save_strategy: 'steps'
@@ -35,8 +35,8 @@ training_args:
 
 inference_args:
   device: 'cuda:0'
-  seq_model_path: ./models/weights/flexpert_seq_weights.bin
+  seq_model_path: ./results/ProT5/ProT5FullBS2R4A4_20251030_100052/final_model/pytorch_model.bin
   3d_model_path: ./models/weights/flexpert_3d_weights.bin
   enm_type: 'ANM'
   batch_size: 4
-  prediction_output_dir: 'prediction_results/{}-{}-{}-predictions.txt'
+  prediction_output_dir: 'prediction_results/650Mnew_full_precision-results_Seq_batchsize_4-predictions.txt'

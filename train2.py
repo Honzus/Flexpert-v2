@@ -249,7 +249,7 @@ if __name__=='__main__':
         
     ### Load model
     class_config=ClassConfig(config)
-    model, tokenizer = PT5_classification_model(half_precision=config['mixed_precision'], class_config=class_config, lora_r = args.lora_r, lora_alpha = args.lora_alpha)
+    model, tokenizer = SAProt_classification_model(half_precision=config['mixed_precision'], class_config=class_config)
     
     ### Split data into train, valid, test and preprocess
     train,valid,test = do_topology_split(df, SPLITS_PATH)
