@@ -1,84 +1,36 @@
-import yaml
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import re
 
-class LoRAConfig:
-    def __init__(self, config_file):
-        # Load the YAML configuration file
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
-        # self.config = config
 
-        # Set class attributes based on the loaded YAML config
-        for key, value in config.items():
-            setattr(self, key, value)
+class MultiplicativeScaling(nn.Module):
+    """Wraps a PEFT LoRA-injected linear layer with learned input/output scalings.
 
-class LoRALinear(nn.Module):
-    def __init__(self, linear_layer, rank, scaling_rank, init_scale):
+    The base weight is applied with a per-feature input scaling (`scale_in`) and output scaling
+    (`scale_out`); the LoRA delta is added unscaled. Only the scalings (and the LoRA params) are
+    trained — the frozen base weight is reused.
+    """
+
+    def __init__(self, linear_layer, init_scale=0.01):
         super().__init__()
-        self.in_features = linear_layer.in_features
-        self.out_features = linear_layer.out_features
-        self.rank = rank
-        self.scaling_rank = scaling_rank
-        self.weight = linear_layer.weight
-        self.bias = linear_layer.bias
-        if self.rank > 0:
-            self.lora_a = nn.Parameter(torch.randn(rank, linear_layer.in_features) * init_scale)
-            if init_scale < 0:
-                self.lora_b = nn.Parameter(torch.randn(linear_layer.out_features, rank) * init_scale)
-            else:
-                self.lora_b = nn.Parameter(torch.zeros(linear_layer.out_features, rank))
-        if self.scaling_rank:
-            self.multi_lora_a = nn.Parameter(
-                torch.ones(self.scaling_rank, linear_layer.in_features)
-                + torch.randn(self.scaling_rank, linear_layer.in_features) * init_scale
-            )
-            if init_scale < 0:
-                self.multi_lora_b = nn.Parameter(
-                    torch.ones(linear_layer.out_features, self.scaling_rank)
-                    + torch.randn(linear_layer.out_features, self.scaling_rank) * init_scale
-                )
-            else:
-                self.multi_lora_b = nn.Parameter(torch.ones(linear_layer.out_features, self.scaling_rank))
+        self.linear = linear_layer
+        self.scale_in = nn.Parameter(
+            torch.ones(linear_layer.in_features)
+            + torch.randn(linear_layer.in_features) * init_scale
+        )
+        self.scale_out = nn.Parameter(torch.ones(linear_layer.out_features))
 
     def forward(self, input):
-        if self.scaling_rank == 1 and self.rank == 0:
-            # parsimonious implementation for ia3 and lora scaling
-            if self.multi_lora_a.requires_grad:
-                hidden = F.linear((input * self.multi_lora_a.flatten()), self.weight, self.bias)
-            else:
-                hidden = F.linear(input, self.weight, self.bias)
-            if self.multi_lora_b.requires_grad:
-                hidden = hidden * self.multi_lora_b.flatten()
-            return hidden
-        else:
-            # general implementation for lora (adding and scaling)
-            weight = self.weight
-            if self.scaling_rank:
-                weight = weight * torch.matmul(self.multi_lora_b, self.multi_lora_a) / self.scaling_rank
-            if self.rank:
-                weight = weight + torch.matmul(self.lora_b, self.lora_a) / self.rank
-            return F.linear(input, weight, self.bias)
+        W = self.linear.base_layer.weight
+        b = self.linear.base_layer.bias
 
-    def extra_repr(self):
-        return "in_features={}, out_features={}, bias={}, rank={}, scaling_rank={}".format(
-            self.in_features, self.out_features, self.bias is not None, self.rank, self.scaling_rank
-        )
+        # Base weight with scaling — bias excluded from scaling.
+        base_out = self.scale_out * F.linear(input * self.scale_in, W, None)
+        if b is not None:
+            base_out = base_out + b
 
+        # Isolated LoRA delta (unscaled).
+        base_only = F.linear(input, W, b)
+        lora_delta = self.linear(input) - base_only
 
-def modify_with_lora(transformer, config):
-    for m_name, module in dict(transformer.named_modules()).items():
-        if re.fullmatch(config.lora_modules, m_name):
-            for c_name, layer in dict(module.named_children()).items():
-                if re.fullmatch(config.lora_layers, c_name):
-                    assert isinstance(
-                        layer, nn.Linear
-                    ), f"LoRA can only be applied to torch.nn.Linear, but {layer} is {type(layer)}."
-                    setattr(
-                        module,
-                        c_name,
-                        LoRALinear(layer, config.lora_rank, config.lora_scaling_rank, config.lora_init_scale),
-                    )
-    return transformer
+        return base_out + lora_delta

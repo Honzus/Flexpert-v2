@@ -5,7 +5,12 @@ out_enm_dataset_path: "data/custom_dataset/{}_dataset.jsonl" #the {enm} part wil
 fasta_dataset_path: "data/custom_dataset/fasta_dataset.fasta"
 pdb_codes_path: "data/atlas/2022_06_13_ATLAS_pdb.txt"
 atlas_out_dir: "data/atlas/analyses"
-atlas_labels_path: "data/custom_dataset/rmsf_atlas_data_prottransready.txt"
+# mdCATH code list (used by get_correlation_analysis_mdCATH.py / _combined.py).
+# The per-domain HDF5 files (data/mdCATH/mdCATH/data/mdcath_dataset_<code>.h5) must be
+# downloaded separately — see data/mdCATH/download_mdcath.py.
+mdCATH_pdb_codes_path: "data/mdCATH/mdCATH/pdbs_list.txt"
+atlas_labels_path: "data/rmsf_atlas_data_prottransready.txt"
 precomputed_flexibility_profiles_dir: "data/atlas/precomputed_flexibility_profiles"
-flexpert_3d_predictions_path: "data/atlas/precomputed_flexibility_profiles/atlas_test_3D_predictions.txt"
-flexpert_seq_predictions_path: "./prediction_results/650Mnew_full_precision-results_Seq_batchsize_4-predictions.txt"
+# Prediction files produced by run_inference.py (used by get_correlation_analysis.py --evaluate_flexpert).
+flexpert_3d_predictions_path: "prediction_results/3d_atlas_test.txt"
+flexpert_seq_predictions_path: "prediction_results/seq_atlas_test.txt"

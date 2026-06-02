@@ -36,11 +36,8 @@ if __name__ == "__main__":
     parser.add_argument('--evaluate_flexpert', action='store_true', default=False)
     args = parser.parse_args()
 
-
-
     config = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)
     DATA_DIR = config['precomputed_flexibility_profiles_dir']
-
 
     if args.evaluate_flexpert:
         flexpert_3d_predictions_path = config['flexpert_3d_predictions_path']
@@ -62,9 +59,9 @@ if __name__ == "__main__":
     atlas_list_path = config['pdb_codes_path']
     atlas_analyses_dir = config['atlas_out_dir']
 
-    atlas_bfactor_path = atlas_analyses_dir + "/{}_analysis/{}_Bfactor.tsv"
-    atlas_plddt_path = atlas_analyses_dir + "/{}_analysis/{}_pLDDT.tsv"
-    atlas_rmsf_path = atlas_analyses_dir + "/{}_analysis/{}_RMSF.tsv"
+    atlas_bfactor_path = atlas_analyses_dir + "/{}/{}_Bfactor.tsv"
+    atlas_plddt_path = atlas_analyses_dir + "/{}/{}_pLDDT.tsv"
+    atlas_rmsf_path = atlas_analyses_dir + "/{}/{}_RMSF.tsv"
 
     with open(atlas_list_path,'r') as f:
         atlas_list = f.readlines()

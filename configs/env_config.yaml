@@ -1,6 +1,9 @@
+# Local environment settings. Edit these for your machine before running.
 huggingface:
-  HF_HOME: /home/richtj28/huggingface_cache
+  # Cache dir for HuggingFace models/tokenizers (ProstT5 ~5.5 GB, SaProt-650M ~2.5 GB).
+  # Point this at a disk with enough free space; reuse an existing cache to avoid re-downloading.
+  HF_HOME: /mnt/home_lustre/richtj28/.cache/huggingface
 wandb:
-  project: 'Flexpert-nD-Karolina'
+  project: 'Flexpert'
 gpus:
   cuda_visible_device: '0'

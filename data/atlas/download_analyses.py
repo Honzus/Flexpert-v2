@@ -58,7 +58,6 @@ def process_pdb_code(pdb_code, url_base, out_dir):
 
 if __name__== "__main__":
     import os
-    os.chdir('../../')
     pdb_codes_path = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['pdb_codes_path']
     out_dir = yaml.load(open('configs/data_config.yaml', 'r'), Loader=yaml.FullLoader)['atlas_out_dir']
 

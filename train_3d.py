@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Train Flexpert-Seq: a ProstT5 (AA-only) per-residue flexibility (RMSF) regressor.
+"""Train Flexpert-3D: a SAProt per-residue flexibility (RMSF) regressor.
 
-The ProstT5 encoder is LoRA fine-tuned; AA sequences are fed with the canonical
-``<AA2fold>`` prefix. The model is sequence-only (ENM-free).
+SAProt consumes structure-aware "SA-pair" sequences (interleaved uppercase AA +
+lowercase 3Di, one token per residue). The encoder is LoRA fine-tuned. This release
+is ENM-free: structural information comes entirely from the 3Di tokens.
 
 Example
 -------
-    python3 train.py --run_name atlasFlexpertProstT5 \
+    python3 train_3d.py --run_name atlasFlexpertSaprot \
         --data_path data/rmsf_atlas_data_prottransready.txt \
-        --fasta_path data/atlas_sequences.fasta \
+        --fasta_path data/atlas_sa_sequences.fasta \
         --splits_path data/atlas_splits.json
 """
 import os
-import json
 import argparse
 from datetime import datetime
 
@@ -23,21 +23,33 @@ import wandb
 from transformers import TrainingArguments
 
 from utils.utils import (
-    ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset,
-    DataCollatorForTokenRegression, do_topology_split, update_config, compute_metrics,
-    save_finetuned_model,
+    ClassConfig, ENMAdaptedTrainer, set_seeds, create_dataset_3d,
+    DataCollatorForTokenRegression3D, do_topology_split, update_config,
+    compute_metrics, save_finetuned_model,
 )
-from models.T5_encoder_per_token import ProstT5_classification_model
+from models.T5_encoder_per_token import SAProt_classification_model
+
+_UNCOMMON = set('OUBZ-')
+
+
+def clean_sa_pair(seq):
+    """Replace uncommon AAs (O/U/B/Z/-) with X at AA positions (even indices) only,
+    leaving the lowercase 3Di tokens (odd indices) untouched."""
+    chars = list(seq)
+    for i in range(0, len(chars), 2):
+        if chars[i] in _UNCOMMON:
+            chars[i] = 'X'
+    return ''.join(chars)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train Flexpert-Seq (ProstT5 AA-only).')
+    parser = argparse.ArgumentParser(description='Train Flexpert-3D (SAProt).')
     parser.add_argument('--run_name', type=str, required=True, help='Name of the run.')
     parser.add_argument('--adaptor_architecture', type=str, default='no-adaptor',
                         choices=['no-adaptor'],
-                        help='Only the sequence-only (no-adaptor) head is supported in this release.')
+                        help='Only the structure-only (no-adaptor) head is supported in this release.')
     parser.add_argument('--data_path', type=str, help='RMSF label file (NAME:\\tval1, val2, ...).')
-    parser.add_argument('--fasta_path', type=str, help='FASTA file with AA sequences.')
+    parser.add_argument('--fasta_path', type=str, help='SA-pair FASTA (interleaved AA + 3Di).')
     parser.add_argument('--splits_path', type=str, help='JSON file with train/validation/test splits.')
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--epochs', type=int)
@@ -72,7 +84,7 @@ if __name__ == '__main__':
 
     wandb.init(project=env_config['wandb']['project'], name=config['run_name'], config=config)
 
-    # --- Load sequences + labels into a dataframe ---
+    # --- Load SA-pair sequences + labels into a dataframe ---
     sequences = []
     with open(config['fasta_path'], 'r') as fasta_file:
         for record in SeqIO.parse(fasta_file, 'fasta'):
@@ -88,28 +100,25 @@ if __name__ == '__main__':
     label_map = dict(zip(names, labels))
     df['label'] = df['name'].map(label_map)
     df = df[df['label'].notna()].reset_index(drop=True)
+    df['sequence'] = df['sequence'].map(clean_sa_pair)
 
     set_seeds(config['seed'])
 
     class_config = ClassConfig(config)
-    model, tokenizer = ProstT5_classification_model(
-        half_precision=config['mixed_precision'], class_config=class_config, lora_r=4)
+    model, tokenizer = SAProt_classification_model(
+        half_precision=config['mixed_precision'], class_config=class_config)
 
     train, valid, test = do_topology_split(df, config['splits_path'])
-    # Mask >900 RMSF sentinels (missing/disordered residues) with -100; clean uncommon AAs;
-    # and space-separate residues for the ProstT5 (T5) tokenizer (no directional prefix).
+    # Mask >900 RMSF sentinels (missing/disordered residues) with -100.
     for split_df in (train, valid):
         split_df['label'] = split_df.apply(
             lambda row: [-100 if x > 900 else x for x in row['label']], axis=1)
-        split_df['sequence'] = split_df['sequence'].str.replace(
-            '|'.join(['O', 'B', 'U', 'Z', '-']), 'X', regex=True)
-        split_df['sequence'] = split_df['sequence'].apply(lambda s: ' '.join(s))
 
-    train_set = create_dataset(tokenizer, list(train['sequence']), list(train['label']))
-    valid_set = create_dataset(tokenizer, list(valid['sequence']), list(valid['label']))
+    train_set = create_dataset_3d(tokenizer, list(train['sequence']), list(train['label']))
+    valid_set = create_dataset_3d(tokenizer, list(valid['sequence']), list(valid['label']))
 
     training_args = TrainingArguments(**config['training_args'])
-    data_collator = DataCollatorForTokenRegression(tokenizer)
+    data_collator = DataCollatorForTokenRegression3D(tokenizer)
 
     trainer = ENMAdaptedTrainer(
         model,

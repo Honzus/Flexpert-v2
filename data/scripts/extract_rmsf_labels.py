@@ -1,6 +1,9 @@
 import os
 import yaml
 import pandas as pd
+import h5py
+import numpy as np
+
 def extract_rmsf_labels(file_path):
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -15,6 +18,29 @@ def extract_rmsf_labels(file_path):
             avg_rmsf = (rmsf_r1 + rmsf_r2 + rmsf_r3) / 3
             rmsf_values.append(avg_rmsf)
     return protein_id, rmsf_values
+
+def extract_rmsf_labels_mdCATH(file_path):
+    f = h5py.File(file_path, 'r')
+    keys = list(f.keys())
+    protein = f[keys[0]]
+    
+    rmsfs = np.array([protein["320"][f"{i}"]["rmsf"] for i in range(5)])
+    rmsf = np.mean(rmsfs, axis = 0)
+
+    protein_name = protein.name[1:]
+    
+    return protein_name, rmsf
+
+def get_all_rmsf_labels_mdCATH(file_path):
+    f = h5py.File(file_path, 'r')
+    keys = list(f.keys())
+    protein = f[keys[0]]
+    
+    rmsfs = np.array([protein["320"][f"{i}"]["rmsf"] for i in range(5)])
+
+    protein_name = protein.name[1:]
+    
+    return protein_name, rmsfs
 
 def extract_bfactor_labels(file_path):
     bfactor = pd.read_csv(file_path, delimiter='\t')['Bfactor']

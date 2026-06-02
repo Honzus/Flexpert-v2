@@ -1,42 +1,35 @@
-data_path: 'data/rmsf_atlas_data_prottransready.txt'
-fasta_path: 'data/atlas_sequences.fasta'
-enm_path: 'data/atlas_minimized_fluctuations_ANM.jsonl'
-splits_path: 'data/atlas_splits.json'
+# Default training configuration. Any value here can be overridden on the command line
+# (e.g. --fasta_path, --batch_size). Defaults point at the bundled ATLAS dataset.
+#
+# Flexpert-Seq (train.py)    uses an AA FASTA      (data/atlas_sequences.fasta).
+# Flexpert-3D  (train_3d.py) uses an SA-pair FASTA (data/atlas_sa_sequences.fasta) —
+#   pass it explicitly with --fasta_path data/atlas_sa_sequences.fasta.
+
+data_path: 'data/rmsf_atlas_data_prottransready.txt'   # per-residue RMSF labels
+fasta_path: 'data/atlas_sequences.fasta'               # AA fasta (Seq); see note above for 3D
+splits_path: 'data/atlas_splits.json'                  # train/validation/test split
+
 batch_size: 8
 epochs: 100
-add_pearson_loss: False
-add_sse_loss: False
-enm_embed_dim: 128
-enm_att_heads: 8
-num_layers: 3
-kernel_size: 5
-mixed_precision: True
+mixed_precision: False
 gradient_accumulation_steps: 1
 seed: 42
-adaptor_architecture: null
+adaptor_architecture: 'no-adaptor'   # release is sequence/structure-only (ENM-free)
 run_name: null
-num_labels: 1 # for regression
+num_labels: 1          # per-residue regression
 dropout_rate: 0.2
 
-#huggingface trainer arguments
+# HuggingFace Trainer arguments
 training_args:
-  output_dir: './results/ProT5/results_{run_name}_{timestamp}'
-  run_name: null  # This will be set programmatically
-  eval_strategy: 'steps'            
-  save_strategy: 'steps'
-  load_best_model_at_end: True         # Load the best model (based on metric) at the end of training
-  metric_for_best_model: 'spearmanr'    # The metric to use to compare models
-  greater_is_better: True               # Defines whether higher values of the above metric are better
+  output_dir: './results/results_{run_name}_{timestamp}'
+  run_name: null                       # set programmatically
+  eval_strategy: 'epoch'
+  save_strategy: 'epoch'
+  load_best_model_at_end: True
+  metric_for_best_model: 'spearmanr'
+  greater_is_better: True
   learning_rate: 0.0003
   save_safetensors: False
   save_steps: 256
   save_total_limit: 3
   logging_strategy: 'epoch'
-
-inference_args:
-  device: 'cuda:0'
-  seq_model_path: ./results/ProT5/ProT5FullBS2R4A4_20251030_100052/final_model/pytorch_model.bin
-  3d_model_path: ./models/weights/flexpert_3d_weights.bin
-  enm_type: 'ANM'
-  batch_size: 4
-  prediction_output_dir: 'prediction_results/650Mnew_full_precision-results_Seq_batchsize_4-predictions.txt'
