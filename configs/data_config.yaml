@@ -1,0 +1,19 @@
+pdb_dir: "data/PDBs"
+preprocessed_dir: "data/custom_dataset"
+pdb_codes_path: "data/atlas/2022_06_13_ATLAS_pdb.txt"
+atlas_out_dir: "data/atlas/analyses"
+# mdCATH code list (used by evaluation/get_correlation_analysis_mdCATH.py).
+# The per-domain HDF5 files (data/mdCATH/mdCATH/data/mdcath_dataset_<code>.h5) must be
+# downloaded separately — see data/mdCATH/download_mdcath.py.
+mdCATH_pdb_codes_path: "data/mdCATH/mdCATH/pdbs_list.txt"
+atlas_labels_path: "data/rmsf_atlas_data_prottransready.txt"
+precomputed_flexibility_profiles_dir: "data/atlas/precomputed_flexibility_profiles"
+# Prediction files produced by run_inference.py (used by evaluation/get_correlation_analysis.py
+# --evaluate_flexpert); these are run_inference.py's default output names for the ATLAS test split.
+flexpert_3d_predictions_path: "outputs/predictions/flexpert_3d_atlas_test.txt"
+flexpert_seq_predictions_path: "outputs/predictions/flexpert_seq_atlas_test.txt"
+# Flexpert v1 (ProtT5-based, original Flexpert paper) predictions on the ATLAS test split — shipped.
+flexpert_v1_seq_predictions_path: "data/atlas/precomputed_flexibility_profiles/flexpert_v1_prott5_seq_atlas_test.txt"
+flexpert_v1_3d_predictions_path: "data/atlas/precomputed_flexibility_profiles/flexpert_v1_prott5_3d_atlas_test.txt"
+# Foldseek binary used by data/scripts/build_sa_fasta.py (after --foldseek and $FOLDSEEK).
+foldseek_bin: "foldseek"

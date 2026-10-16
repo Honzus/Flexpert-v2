@@ -1,0 +1,26 @@
+# Dependencies for Flexpert-Seq, Flexpert-3D and the flexibility analysis scripts.
+# (Equivalent to pyproject.toml; for pip users. `uv sync` is the preferred install.)
+accelerate>=1.14
+biopython
+biotite
+datasets>=5.0
+h5py
+huggingface-hub>=1.28
+matplotlib
+numpy
+opentsne
+pandas
+peft>=0.20
+PyYAML
+requests
+scikit-learn
+scipy
+seaborn
+sentencepiece
+torch>=2.13
+tqdm
+transformers>=5.15,<6
+umap-learn
+wandb
+# dev / tests
+pytest>=9

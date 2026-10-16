@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+torch_venv/
+
+# Local assistant files
+/CLAUDE.md
+.claude/
+
+# Weights (download_flexpert_weights.py)
+weights/**
+!weights/**/
+!weights/**/.gitkeep
+
+# Checkpoints, predictions and logs
+outputs/**
+!outputs/**/
+!outputs/**/.gitkeep
+wandb/
+plots/
+tmp/
+
+# Core data downloads / generated files (data/atlas/download_analyses.py,
+# analysis/extract_cath_labels.py defaults, CATH/mdCATH metadata)
+/data/atlas/analyses
+/data/pdb_cath_labels.tsv
+/data/cath-names.txt
+/data/mdCATH/mdCATH/cath-domain-list.txt
+/data/mdCATH/mdCATH/chain_set_splits.json
+
+# HuggingFace model cache
+HF_cache/
+
+# Analysis caches and large generated artifacts
+*.npz
+*.h5
+
+# SLURM logs
+slurm-*.out
+slurm-*.err
+
+# External tools
+foldseek/
+
+# OS
+.DS_Store
+
+# legacy local dirs (pre-reorg; moved to outputs/)
+/results/
+/prediction_results/
+/models/weights/
+/data/embeddings/
+/data/raw_*/
+/data/fasta_bundle/
+/data/*_distill_seqs.txt

@@ -1,0 +1,37 @@
+# Default training configuration. Any value here can be overridden on the command line
+# (e.g. --fasta_path, --batch_size). Defaults point at the bundled ATLAS dataset.
+#
+# Flexpert-Seq (train.py)    uses an AA FASTA      (data/atlas_sequences.fasta).
+# Flexpert-3D  (train_3d.py) uses an SA-pair FASTA (data/atlas_sa_sequences.fasta) —
+#   pass it explicitly with --fasta_path data/atlas_sa_sequences.fasta.
+# Flexpert-Seq on ProtT5 (train.py --backbone prott5) uses the same defaults; its released
+#   weights were trained with --save_steps 256 (mdCATH: 512).
+
+data_path: 'data/rmsf_atlas_data_prottransready.txt'   # per-residue RMSF labels
+fasta_path: 'data/atlas_sequences.fasta'               # AA fasta (Seq); see note above for 3D
+splits_path: 'data/atlas_splits.json'                  # train/validation/test split
+
+batch_size: 8
+epochs: 100
+mixed_precision: False
+gradient_accumulation_steps: 1
+seed: 42
+adaptor_architecture: 'no-adaptor'   # release is sequence/structure-only (ENM-free)
+run_name: null
+num_labels: 1          # per-residue regression
+dropout_rate: 0.2
+
+# HuggingFace Trainer arguments
+training_args:
+  output_dir: './outputs/checkpoints/{run_name}_{timestamp}'   # final weights: <output_dir>/final_model/pytorch_model.bin
+  run_name: null                       # set programmatically
+  eval_strategy: 'epoch'
+  save_strategy: 'epoch'
+  load_best_model_at_end: True
+  metric_for_best_model: 'spearmanr'
+  greater_is_better: True
+  learning_rate: 0.0003
+  save_steps: 256
+  save_total_limit: 3
+  logging_strategy: 'epoch'
+  report_to: 'wandb'                   # forced to 'none' when WANDB_MODE=disabled

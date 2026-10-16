@@ -1,0 +1,12 @@
+# Local environment settings, applied by utils/env.py::setup_env() before any model import.
+# Variables already set in your shell (or by SLURM) always take precedence over these values.
+huggingface:
+  # Cache dir for HuggingFace models/tokenizers (ProstT5 ~5.5 GB, SaProt-650M ~2.5 GB).
+  # Point this at a disk with enough free space; reuse an existing cache to avoid re-downloading.
+  # Left as the /path/to/... placeholder (or with HF_HOME exported), the default HF cache is used.
+  HF_HOME: /path/to/your/huggingface/cache
+wandb:
+  project: 'Flexpert'
+gpus:
+  # Used only when CUDA_VISIBLE_DEVICES is not already set (it is never overridden).
+  cuda_visible_device: '0'
