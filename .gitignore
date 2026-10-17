@@ -34,6 +34,11 @@ tmp/
 /data/cath-names.txt
 /data/mdCATH/mdCATH/cath-domain-list.txt
 /data/mdCATH/mdCATH/chain_set_splits.json
+/data/mdCATH/mdCATH/pdbs
+/data/pdb_sequences.fasta
+
+# Figure 5 outputs (analysis/fig5_*.py)
+/analysis/figures/
 
 # HuggingFace model cache
 HF_cache/

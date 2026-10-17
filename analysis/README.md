@@ -25,8 +25,8 @@ Run every command from the repository root, as a module (`python3 -m analysis.<s
 ## Typical workflow
 
 The example uses the bundled ATLAS sequences; use any AA FASTA to map other chains.
-`run_inference.py` always needs a splits JSON. `extract_embeddings` processes every FASTA record
-when you omit `--splits_path`.
+`run_inference.py` and `extract_embeddings` both process every FASTA record when you omit
+`--splits_path`.
 
 ```bash
 # 0. Released Flexpert-Seq weights -> weights/
@@ -71,6 +71,47 @@ Pass `--recompute` to ignore the caches.
 The defaults, `outputs/predictions/entire_pdb_atlas_prot5.txt` and
 `outputs/predictions/entire_pdb_atlas_prot5_embeddings.h5`, are the file names of the paper's
 full-PDB run; pass `--predictions` / `--embeddings` to use your own files.
+
+## Figure 5 (proteome-scale annotation)
+
+Five scripts reproduce the panels of Figure 5 and Supplementary Figure 4 with the released
+Flexpert-Seq weights (ProstT5, and ProtT5 for the second set of 5b / Supp. 4). Every output (figures, CSVs, `pooled_*.npz`, caches) goes to
+`analysis/figures/`, which is git-ignored.
+
+| Script | Panel | Method |
+|--------|-------|--------|
+| `extract_pooled_embeddings.py` | inputs for a, b | Last-layer embeddings averaged over residues, one 1024-d vector per chain. Models: `flexpert` (Flexpert-Seq ProstT5), `flexpert_prott5` (Flexpert-Seq ProtT5), vanilla `prott5`, vanilla `prostt5`. Input is the AA sequence alone for all four (no `<AA2fold>` prefix). No length filter. |
+| `fig5_tsne.py` | a, Supp. 4 | StandardScaler → PCA 50 (seed 42) → openTSNE (perplexity 50, Euclidean, seed 42). Coloured by CATH architecture. |
+| `fig5_neighbours.py` | b | L2-normalise → PCA 50 (seed 42) → exact cosine 40-NN over all chains, self excluded. For every chain and model pair, the number of shared neighbours; split violins and mean ± sd / median / quartiles (CSV) over all chains and over unique-sequence chains. Two sets: with the ProstT5 and with the ProtT5 Flexpert. |
+| `fig5_termini.py` | c | ATLAS test set. B-factor, MD RMSF and prediction each z-scored within the chain, residues pooled into 20 bins of relative position i/(L−1), mean ± SEM. Chains whose prediction is truncated (5vz0.A) are skipped. |
+| `fig5_hydrophobicity.py` | d, e, f | Kyte-Doolittle vs mean prediction per amino acid; Spearman ρ over the 20 means; His runs ≥ 4 masked. `--set mdcath` splits residues at rSASA 0.25 (biotite Shrake-Rupley, `vdw_radii="Single"`, Tien 2013 maxima). |
+
+The 84,179 PDB chains contain only 45,156 distinct sequences: many entries re-deposit the same
+protein with another ligand or soak (lysozyme ×1042, SARS-CoV-2 Mpro ×779, fragment-screen series).
+Identical sequences have identical embeddings in every model, so these chains share neighbours
+trivially; 5b therefore also reports the 34,949 unique-sequence chains (sequence occurs once in the
+FASTA).
+
+Inputs not shipped with the repo (gitignored paths): `data/pdb_sequences.fasta` (the 84,179
+monomeric PDB chains), `data/pdb_cath_labels.tsv` (`extract_cath_labels`), `data/atlas/analyses`
+(`data/atlas/download_analyses.py`) and the mdCATH domain PDBs in `data/mdCATH/mdCATH/pdbs`.
+
+```bash
+W=weights/flexpert_seq_prostt5_aa_weights.bin
+# GPU: predictions -> outputs/predictions/flexpert_seq_{pdb_sequences,mdCATH_sequences}.txt
+python3 run_inference.py --backbone prostt5 --weights_path $W --fasta_path data/pdb_sequences.fasta --batch_size 16
+python3 run_inference.py --backbone prostt5 --weights_path $W --fasta_path data/mdCATH_sequences.fasta --batch_size 16
+python3 run_inference.py --backbone prostt5 --weights_path $W --fasta_path data/atlas_sequences.fasta \
+    --splits_path data/atlas_splits.json --split test
+# GPU: pooled embeddings -> analysis/figures/pooled_{flexpert,flexpert_prott5,prott5,prostt5}.npz
+for m in flexpert flexpert_prott5 prott5 prostt5; do python3 -m analysis.extract_pooled_embeddings --model $m; done
+# CPU: figures
+python3 -m analysis.fig5_tsne                       # a + Supp. 4
+python3 -m analysis.fig5_neighbours                 # b (k-NN cached as knn40_<model>.npy)
+python3 -m analysis.fig5_termini                    # c
+python3 -m analysis.fig5_hydrophobicity --set pdb     # d
+python3 -m analysis.fig5_hydrophobicity --set mdcath  # e, f (rSASA cached in mdcath_rsasa.npz)
+```
 
 > **Note.** In this release the embeddings come from the ProstT5 Flexpert-Seq backbone. The
 > paper's original universe used ProtT5, which is why some default file names and plot titles

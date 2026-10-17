@@ -157,7 +157,9 @@ def _core_files():
     'evaluation.get_correlation_analysis_mdCATH',
     'analysis.extract_cath_labels', 'analysis.extract_embeddings',
     'analysis.plot_flexibility_universe', 'analysis.plot_embedding_universe',
-    'analysis.plot_embedding_universe_cath',
+    'analysis.plot_embedding_universe_cath', 'analysis.extract_pooled_embeddings',
+    'analysis.fig5_tsne', 'analysis.fig5_neighbours', 'analysis.fig5_termini',
+    'analysis.fig5_hydrophobicity',
     'data.scripts.extract_rmsf_labels', 'data.scripts.build_sa_fasta',
     'data.scripts.prepare_dataset',
     'run_inference', 'download_flexpert_weights',
@@ -726,7 +728,44 @@ def test_download_weights_cli_default(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 9. Repo hygiene
+# 9. Figure 5 analysis helpers
+# ---------------------------------------------------------------------------
+def test_knn_cosine_and_shared_counts():
+    from analysis.fig5_neighbours import knn_cosine, shared_counts
+    x = np.array([[1, 0], [0.9, 0.1], [0, 1], [0.1, 0.9]], dtype=np.float32)
+    nn = knn_cosine(x, 1, chunk=3)                   # chunk < N exercises the self-exclusion offset
+    assert nn[:, 0].tolist() == [1, 0, 3, 2]
+    assert shared_counts(np.array([[1, 2, 3]]), np.array([[3, 4, 1]])).tolist() == [2]
+
+
+def test_knn_overlap_unique_mask_and_summary():
+    from analysis.fig5_neighbours import SETS, summarise, unique_sequence_mask
+    from analysis.fig5_tsne import MODELS
+    assert unique_sequence_mask(['A', 'B', 'A', 'C']).tolist() == [False, True, False, True]
+    s = summarise(np.array([0, 10, 20, 30, 40]))
+    assert (s['n_chains'], s['mean'], s['median'], s['q25'], s['q75']) == (5, 20, 20, 10, 30)
+    assert s['sd'] == pytest.approx(np.sqrt(200))
+    assert all(m in MODELS for pairs in SETS.values() for p in pairs for m in p)
+
+
+def test_termini_zscore_and_bins():
+    from analysis.fig5_termini import relative_bins, zscore
+    assert relative_bins(5, 2).tolist() == [0, 0, 1, 1, 1]  # i/(L-1) = 0, .25, .5, .75, 1
+    z = zscore([1.0, np.nan, 3.0])
+    assert z[0] == pytest.approx(-1) and np.isnan(z[1]) and z[2] == pytest.approx(1)
+
+
+def test_hydrophobicity_his_mask_and_per_aa():
+    from analysis.fig5_hydrophobicity import his_tag_mask, per_aa_stats
+    assert his_tag_mask('MHHHHAHH').tolist() == [False, True, True, True, True, False, False, False]
+    assert not his_tag_mask('MHHHH', 0).any()
+    stats = per_aa_stats(['AAG', 'G'], [np.array([1.0, 3.0, np.nan]), np.array([5.0])])
+    assert stats['A'][0] == pytest.approx(2) and stats['A'][2] == 2
+    assert stats['G'][0] == pytest.approx(5) and stats['G'][2] == 1   # NaN (masked) residue dropped
+
+
+# ---------------------------------------------------------------------------
+# 10. Repo hygiene
 # ---------------------------------------------------------------------------
 def _tracked_files():
     try:
